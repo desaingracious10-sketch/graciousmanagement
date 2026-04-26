@@ -1,0 +1,224 @@
+{
+  "users": [
+    { "id": "u1", "name": "Admin Utama", "email": "admin@gracioushealthy.com", "password": "admin123", "role": "superadmin", "phone": "0811000001", "isActive": true, "createdAt": "2026-01-01T00:00:00.000Z" },
+    { "id": "u2", "name": "Admin Sales", "email": "sales@gracious.com", "password": "sales123", "role": "sales", "phone": "0811000002", "isActive": true, "createdAt": "2026-01-05T00:00:00.000Z" },
+    { "id": "u3", "name": "Budi Sales", "email": "budi@gracious.com", "password": "sales123", "role": "sales", "phone": "0811000003", "isActive": true, "createdAt": "2026-01-05T00:00:00.000Z" },
+    { "id": "u4", "name": "Admin Alamat", "email": "alamat@gracious.com", "password": "alamat123", "role": "address_admin", "phone": "0811000004", "isActive": true, "createdAt": "2026-01-08T00:00:00.000Z" },
+    { "id": "u10", "name": "Dewi Alamat", "email": "dewi@gracious.com", "password": "alamat123", "role": "address_admin", "phone": "0811000010", "isActive": true, "createdAt": "2026-01-10T00:00:00.000Z" },
+    { "id": "u5", "name": "Driver Demo", "email": "drivername@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000005", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
+    { "id": "u6", "name": "Aji", "email": "aji@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000006", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
+    { "id": "u7", "name": "Abdul", "email": "abdul@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000007", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
+    { "id": "u8", "name": "Ariyadi", "email": "ariyadi@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000008", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
+    { "id": "u9", "name": "Endang", "email": "endang@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000009", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" }
+  ],
+
+  "zones": [
+    { "id": "z1", "name": "Jakarta Selatan", "colorCode": "#0d9488", "keywords": ["jaksel","jakarta selatan","kebayoran","cilandak","pasar minggu","pancoran","tebet","mampang"] },
+    { "id": "z2", "name": "Jakarta Barat", "colorCode": "#3b82f6", "keywords": ["jakbar","jakarta barat","grogol","kebon jeruk","cengkareng","kalideres","taman sari"] },
+    { "id": "z3", "name": "Jakarta Timur", "colorCode": "#f59e0b", "keywords": ["jaktim","jakarta timur","cakung","duren sawit","pulogadung","kramat jati","jatinegara"] },
+    { "id": "z4", "name": "Jakarta Utara", "colorCode": "#8b5cf6", "keywords": ["jakut","jakarta utara","kelapa gading","tanjung priok","penjaringan","koja","pademangan"] },
+    { "id": "z5", "name": "Jakarta Pusat", "colorCode": "#ec4899", "keywords": ["jakpus","jakarta pusat","sudirman","menteng","gambir","senen","tanah abang"] },
+    { "id": "z6", "name": "Bekasi", "colorCode": "#ef4444", "keywords": ["bekasi","jatiasih","jatisampurna","pondok gede","tambun"] },
+    { "id": "z7", "name": "Tangerang Selatan", "colorCode": "#10b981", "keywords": ["tangsel","tangerang selatan","bsd","bintaro","serpong","ciputat","pamulang"] },
+    { "id": "z8", "name": "Tangerang Kota", "colorCode": "#f97316", "keywords": ["tangerang","karawaci","cipondoh","pinang","alam sutera"] }
+  ],
+
+  "programs": [
+    {
+      "id": "p1",
+      "name": "Healthy Life Program",
+      "category": "healthy_life",
+      "description": "Menu sehat seimbang untuk gaya hidup harian.",
+      "mealTypes": ["lunch_only", "lunch_dinner"],
+      "durations": ["weekly_5", "monthly_20"],
+      "prices": {
+        "weekly_5_lunch": 476000,
+        "weekly_5_lunch_dinner": 791000,
+        "monthly_20_lunch": 1680000,
+        "monthly_20_lunch_dinner": 2955000
+      }
+    },
+    {
+      "id": "p2",
+      "name": "Busui Premium Program",
+      "category": "busui",
+      "description": "Menu premium untuk ibu menyusui dengan booster ASI.",
+      "mealTypes": ["lunch_only", "lunch_dinner"],
+      "durations": ["weekly_5", "monthly_20"],
+      "prices": {
+        "weekly_5_lunch": 700000,
+        "weekly_5_lunch_dinner": 1150000,
+        "monthly_20_lunch": 2500000,
+        "monthly_20_lunch_dinner": 4100000
+      }
+    },
+    {
+      "id": "p3",
+      "name": "Bumil Program",
+      "category": "bumil",
+      "description": "Menu khusus ibu hamil, kaya zat besi & folat.",
+      "mealTypes": ["lunch_only", "lunch_dinner"],
+      "durations": ["weekly_5", "monthly_20"],
+      "prices": {
+        "weekly_5_lunch": 600000,
+        "weekly_5_lunch_dinner": 980000,
+        "monthly_20_lunch": 2150000,
+        "monthly_20_lunch_dinner": 3650000
+      }
+    },
+    {
+      "id": "p4",
+      "name": "Bulking / Muscle Up Program",
+      "category": "bulking",
+      "description": "Menu tinggi protein untuk penambahan massa otot.",
+      "mealTypes": ["lunch_only", "lunch_dinner"],
+      "durations": ["weekly_5", "monthly_20"],
+      "prices": {
+        "weekly_5_lunch": 650000,
+        "weekly_5_lunch_dinner": 1080000,
+        "monthly_20_lunch": 2300000,
+        "monthly_20_lunch_dinner": 4000000
+      }
+    },
+    {
+      "id": "p5",
+      "name": "IVF Program",
+      "category": "ivf",
+      "description": "Menu pendukung program bayi tabung.",
+      "mealTypes": ["lunch_only", "lunch_dinner"],
+      "durations": ["weekly_5", "monthly_20"],
+      "prices": {
+        "weekly_5_lunch": 800000,
+        "weekly_5_lunch_dinner": 1350000,
+        "monthly_20_lunch": 2900000,
+        "monthly_20_lunch_dinner": 4900000
+      }
+    },
+    {
+      "id": "p6",
+      "name": "Promil - PCOS Program",
+      "category": "promil_pcos",
+      "description": "Menu program kehamilan untuk penderita PCOS.",
+      "mealTypes": ["lunch_only", "lunch_dinner"],
+      "durations": ["weekly_5", "monthly_20"],
+      "prices": {
+        "weekly_5_lunch": 720000,
+        "weekly_5_lunch_dinner": 1200000,
+        "monthly_20_lunch": 2600000,
+        "monthly_20_lunch_dinner": 4400000
+      }
+    },
+    {
+      "id": "p7",
+      "name": "Weight Loss Diet Program",
+      "category": "weight_loss",
+      "description": "Menu defisit kalori terkontrol untuk penurunan berat badan.",
+      "mealTypes": ["lunch_only", "lunch_dinner"],
+      "durations": ["weekly_5", "monthly_20"],
+      "prices": {
+        "weekly_5_lunch": 550000,
+        "weekly_5_lunch_dinner": 920000,
+        "monthly_20_lunch": 1950000,
+        "monthly_20_lunch_dinner": 3450000
+      }
+    }
+  ],
+
+  "customers": [
+    { "id": "c1", "name": "Michelle Brigita", "phone": "082129352904", "addressPrimary": "Jl. Nn Blok D3B No.68, Medang, Pagedangan, Tangerang", "addressAlternate": null, "addressNotes": "Rumah pagar hijau, titip ke pos satpam jika tidak ada", "zoneId": "z8", "dietaryNotes": "No Ikan", "isActive": true, "createdAt": "2026-02-10T08:00:00.000Z" },
+    { "id": "c2", "name": "Martha Maulidia", "phone": "08119852605", "addressPrimary": "De Latinos Cluster De Rio Blok B6 No 5, BSD, Rawabuntu, Tangsel", "addressAlternate": null, "addressNotes": "", "zoneId": "z7", "dietaryNotes": "", "isActive": true, "createdAt": "2026-02-12T08:30:00.000Z" },
+    { "id": "c3", "name": "Putri Anggraini", "phone": "081234567003", "addressPrimary": "Cluster Vermont Park BSD No. 12, Tangsel", "addressAlternate": "PT Inovasi Digital, ITC BSD Lantai 3, Tangsel", "addressNotes": "Lunch ke kantor (alternate), dinner ke rumah (primary)", "zoneId": "z7", "dietaryNotes": "Tanpa cabai", "isActive": true, "createdAt": "2026-02-14T09:00:00.000Z" },
+    { "id": "c4", "name": "Rina Setiawati", "phone": "081234567004", "addressPrimary": "Jl. Pamulang Permai 2 Blok C5/15, Pamulang", "addressAlternate": null, "addressNotes": "Rumah cat putih, dekat masjid", "zoneId": "z7", "dietaryNotes": "", "isActive": true, "createdAt": "2026-02-15T09:30:00.000Z" },
+    { "id": "c5", "name": "Dian Pratiwi", "phone": "081234567005", "addressPrimary": "Cluster Foresta Fiore No. 8, BSD City, Tangsel", "addressAlternate": null, "addressNotes": "", "zoneId": "z7", "dietaryNotes": "Alergi seafood", "isActive": true, "createdAt": "2026-02-18T10:00:00.000Z" },
+    { "id": "c6", "name": "Indah Kurniasari", "phone": "081234567006", "addressPrimary": "Jl. Bintaro Sektor 9 Blok A3 No 22, Bintaro", "addressAlternate": "Plaza Bintaro Lantai 5, Tangsel", "addressNotes": "Alternate untuk lunch ke kantor", "zoneId": "z7", "dietaryNotes": "Tanpa daging merah", "isActive": true, "createdAt": "2026-02-20T11:00:00.000Z" },
+    { "id": "c7", "name": "Wulandari Sari", "phone": "081234567007", "addressPrimary": "Apartemen Mediterania Garden Tower B Lt 18, Grogol", "addressAlternate": null, "addressNotes": "Telpon dulu sebelum naik ke unit", "zoneId": "z2", "dietaryNotes": "", "isActive": true, "createdAt": "2026-02-22T11:30:00.000Z" },
+    { "id": "c8", "name": "Nadia Permatasari", "phone": "081234567008", "addressPrimary": "Perumahan Galaxy Blok H/22, Bekasi Selatan", "addressAlternate": "Kantor Pemkot Bekasi, Jl. Ahmad Yani No. 1", "addressNotes": "Lunch ke kantor, dinner ke rumah", "zoneId": "z6", "dietaryNotes": "", "isActive": true, "createdAt": "2026-02-25T08:00:00.000Z" },
+    { "id": "c9", "name": "Bambang Suryadi", "phone": "081234567009", "addressPrimary": "Jl. Pondok Gede Raya No 88, Bekasi", "addressAlternate": null, "addressNotes": "Rumah pagar hitam, ada anjing", "zoneId": "z6", "dietaryNotes": "Tanpa MSG", "isActive": true, "createdAt": "2026-02-26T08:30:00.000Z" },
+    { "id": "c10", "name": "Sri Lestari", "phone": "081234567010", "addressPrimary": "Cluster Grand Galaxy No 15, Bekasi Selatan", "addressAlternate": "RS Mitra Keluarga Bekasi Timur, lobi utama", "addressNotes": "Untuk pasien rawat (alternate)", "zoneId": "z6", "dietaryNotes": "Lunak, untuk pasien", "isActive": true, "createdAt": "2026-02-28T09:00:00.000Z" },
+    { "id": "c11", "name": "Tika Nurhayati", "phone": "081234567011", "addressPrimary": "Jl. Tambun Raya No 45, Bekasi Utara", "addressAlternate": null, "addressNotes": "Titip ke ART Mbak Yati jika tidak ada", "zoneId": "z6", "dietaryNotes": "", "isActive": true, "createdAt": "2026-03-01T09:30:00.000Z" },
+    { "id": "c12", "name": "Hendra Wijaya", "phone": "081234567012", "addressPrimary": "Jatiasih Indah Blok A2 No 7, Bekasi", "addressAlternate": "Kantor Cabang BCA Jatiasih, Jl. Raya Jatiasih No 100", "addressNotes": "Titip security kantor (alternate)", "zoneId": "z6", "dietaryNotes": "", "isActive": true, "createdAt": "2026-03-03T10:00:00.000Z" },
+    { "id": "c13", "name": "Lina Marlina", "phone": "081234567013", "addressPrimary": "Jl. Pulogadung Raya No 12, Cakung, Jakarta Timur", "addressAlternate": null, "addressNotes": "", "zoneId": "z3", "dietaryNotes": "", "isActive": true, "createdAt": "2026-03-05T10:30:00.000Z" },
+    { "id": "c14", "name": "Adelia Putri", "phone": "081234567014", "addressPrimary": "Jl. Kemang Raya No 45, Mampang Prapatan", "addressAlternate": "Kemang Office Tower Lt 8, Jl. Kemang Raya 67", "addressNotes": "Lunch ke kantor, dinner ke rumah", "zoneId": "z1", "dietaryNotes": "Vegetarian", "isActive": true, "createdAt": "2026-03-08T08:00:00.000Z" },
+    { "id": "c15", "name": "Cahyo Pratama", "phone": "081234567015", "addressPrimary": "Pondok Indah Blok C/12 No 5, Pondok Indah", "addressAlternate": "RS Pondok Indah PI 1, Jl. Metro Duta Kav UE", "addressNotes": "Untuk antar ke ortu yang dirawat", "zoneId": "z1", "dietaryNotes": "Diet rendah garam", "isActive": true, "createdAt": "2026-03-10T08:30:00.000Z" },
+    { "id": "c16", "name": "Devi Anjani", "phone": "081234567016", "addressPrimary": "Jl. Cilandak KKO No 88, Cilandak Timur", "addressAlternate": null, "addressNotes": "Rumah ujung gang, dekat warung Pak Haji", "zoneId": "z1", "dietaryNotes": "", "isActive": true, "createdAt": "2026-03-12T09:00:00.000Z" },
+    { "id": "c17", "name": "Eka Wahyuni", "phone": "081234567017", "addressPrimary": "Apartemen Kebayoran Icon Tower 2 Lt 25 Unit C, Kebayoran", "addressAlternate": "Plaza Senayan Office Lt 12, Jl. Asia Afrika No 8", "addressNotes": "Naik lift dari lobi B", "zoneId": "z1", "dietaryNotes": "Lactose intolerant", "isActive": true, "createdAt": "2026-03-14T09:30:00.000Z" },
+    { "id": "c18", "name": "Fajar Ramadhan", "phone": "081234567018", "addressPrimary": "Jl. Tebet Raya No 30, Tebet Timur", "addressAlternate": null, "addressNotes": "", "zoneId": "z1", "dietaryNotes": "", "isActive": true, "createdAt": "2026-03-15T10:00:00.000Z" },
+    { "id": "c19", "name": "Gita Aulia", "phone": "081234567019", "addressPrimary": "Cluster Pancoran Riverside No 8, Pancoran", "addressAlternate": "Kantor Mandiri Tower Pancoran Lt 21", "addressNotes": "Resepsionis Mbak Sari", "zoneId": "z1", "dietaryNotes": "Tanpa gluten", "isActive": true, "createdAt": "2026-03-18T10:30:00.000Z" },
+    { "id": "c20", "name": "Hilman Yusuf", "phone": "081234567020", "addressPrimary": "Jl. Mampang Prapatan No 17, Mampang", "addressAlternate": "Gedung Sucofindo Lt 10, Jl. Pasar Minggu Kav 34", "addressNotes": "Alternate ada di lantai 10 ruang HR", "zoneId": "z1", "dietaryNotes": "", "isActive": true, "createdAt": "2026-03-20T11:00:00.000Z" }
+  ],
+
+  "orders": [
+    { "id": "o1", "orderNumber": "GHC-2604-001", "customerId": "c2", "programId": "p1", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "Antar pukul 11.30", "status": "active", "paymentStatus": "verified", "paymentAmount": 476000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-20T08:30:00.000Z", "createdBy": "u2" },
+    { "id": "o2", "orderNumber": "GHC-2604-002", "customerId": "c3", "programId": "p7", "mealType": "lunch_dinner", "durationType": "monthly_20", "startDate": "2026-04-15", "endDate": "2026-05-12", "dietaryNotes": "Tanpa cabai", "specialNotes": "Lunch kantor, dinner rumah", "status": "active", "paymentStatus": "verified", "paymentAmount": 3450000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-12T09:00:00.000Z", "createdBy": "u2" },
+    { "id": "o3", "orderNumber": "GHC-2604-003", "customerId": "c4", "programId": "p1", "mealType": "lunch_only", "durationType": "monthly_20", "startDate": "2026-04-10", "endDate": "2026-05-07", "dietaryNotes": "", "specialNotes": "", "status": "active", "paymentStatus": "verified", "paymentAmount": 1680000, "paymentMethod": "shopee_pay", "orderSource": "shopee", "createdAt": "2026-04-08T10:00:00.000Z", "createdBy": "u2" },
+    { "id": "o4", "orderNumber": "GHC-2604-004", "customerId": "c5", "programId": "p2", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "Alergi seafood", "specialNotes": "", "status": "active", "paymentStatus": "verified", "paymentAmount": 700000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T08:00:00.000Z", "createdBy": "u3" },
+    { "id": "o5", "orderNumber": "GHC-2604-005", "customerId": "c6", "programId": "p7", "mealType": "lunch_dinner", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "Tanpa daging merah", "specialNotes": "Lunch kantor, dinner rumah", "status": "active", "paymentStatus": "pending", "paymentAmount": 920000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T08:30:00.000Z", "createdBy": "u3" },
+
+    { "id": "o6", "orderNumber": "GHC-2604-006", "customerId": "c8", "programId": "p3", "mealType": "lunch_dinner", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "Lunch kantor Pemkot", "status": "active", "paymentStatus": "verified", "paymentAmount": 980000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-20T08:00:00.000Z", "createdBy": "u2" },
+    { "id": "o7", "orderNumber": "GHC-2604-007", "customerId": "c9", "programId": "p1", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "Tanpa MSG", "specialNotes": "", "status": "active", "paymentStatus": "verified", "paymentAmount": 476000, "paymentMethod": "tokopedia", "orderSource": "tokopedia", "createdAt": "2026-04-20T09:00:00.000Z", "createdBy": "u3" },
+    { "id": "o8", "orderNumber": "GHC-2604-008", "customerId": "c10", "programId": "p3", "mealType": "lunch_dinner", "durationType": "monthly_20", "startDate": "2026-04-08", "endDate": "2026-05-05", "dietaryNotes": "Lunak, untuk pasien", "specialNotes": "Antar dua titik (rumah & RS)", "status": "active", "paymentStatus": "verified", "paymentAmount": 3650000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-06T10:00:00.000Z", "createdBy": "u2" },
+    { "id": "o9", "orderNumber": "GHC-2604-009", "customerId": "c11", "programId": "p7", "mealType": "lunch_only", "durationType": "monthly_20", "startDate": "2026-04-12", "endDate": "2026-05-09", "dietaryNotes": "", "specialNotes": "", "status": "active", "paymentStatus": "verified", "paymentAmount": 1950000, "paymentMethod": "shopee_pay", "orderSource": "shopee", "createdAt": "2026-04-10T10:30:00.000Z", "createdBy": "u3" },
+    { "id": "o10", "orderNumber": "GHC-2604-010", "customerId": "c12", "programId": "p4", "mealType": "lunch_dinner", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "Lunch kantor BCA", "status": "active", "paymentStatus": "verified", "paymentAmount": 1080000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T09:00:00.000Z", "createdBy": "u2" },
+    { "id": "o11", "orderNumber": "GHC-2604-011", "customerId": "c8", "programId": "p1", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "Untuk anak", "specialNotes": "Tambahan untuk anak SMP", "status": "active", "paymentStatus": "pending", "paymentAmount": 476000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T11:00:00.000Z", "createdBy": "u2" },
+    { "id": "o12", "orderNumber": "GHC-2604-012", "customerId": "c10", "programId": "p7", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "Untuk diri sendiri (selain pasien)", "specialNotes": "", "status": "active", "paymentStatus": "verified", "paymentAmount": 550000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-20T13:00:00.000Z", "createdBy": "u3" },
+    { "id": "o13", "orderNumber": "GHC-2604-013", "customerId": "c12", "programId": "p7", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "Untuk istri", "status": "active", "paymentStatus": "verified", "paymentAmount": 550000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T14:00:00.000Z", "createdBy": "u2" },
+
+    { "id": "o14", "orderNumber": "GHC-2604-014", "customerId": "c14", "programId": "p1", "mealType": "lunch_only", "durationType": "monthly_20", "startDate": "2026-04-15", "endDate": "2026-05-12", "dietaryNotes": "Vegetarian", "specialNotes": "Tanpa daging dan ayam", "status": "active", "paymentStatus": "verified", "paymentAmount": 1680000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-14T08:30:00.000Z", "createdBy": "u2" },
+    { "id": "o15", "orderNumber": "GHC-2604-015", "customerId": "c15", "programId": "p3", "mealType": "lunch_dinner", "durationType": "monthly_20", "startDate": "2026-04-10", "endDate": "2026-05-07", "dietaryNotes": "Diet rendah garam", "specialNotes": "Antar dua titik (rumah PI & RS)", "status": "active", "paymentStatus": "verified", "paymentAmount": 3650000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-08T09:00:00.000Z", "createdBy": "u3" },
+    { "id": "o16", "orderNumber": "GHC-2604-016", "customerId": "c16", "programId": "p4", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "", "status": "active", "paymentStatus": "verified", "paymentAmount": 650000, "paymentMethod": "shopee_pay", "orderSource": "shopee", "createdAt": "2026-04-21T10:00:00.000Z", "createdBy": "u3" },
+    { "id": "o17", "orderNumber": "GHC-2604-017", "customerId": "c17", "programId": "p2", "mealType": "lunch_dinner", "durationType": "monthly_20", "startDate": "2026-04-08", "endDate": "2026-05-05", "dietaryNotes": "Lactose intolerant", "specialNotes": "Lunch ke kantor Plaza Senayan", "status": "active", "paymentStatus": "verified", "paymentAmount": 4100000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-06T11:00:00.000Z", "createdBy": "u2" },
+    { "id": "o18", "orderNumber": "GHC-2604-018", "customerId": "c18", "programId": "p7", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "", "status": "active", "paymentStatus": "pending", "paymentAmount": 550000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T11:30:00.000Z", "createdBy": "u3" },
+    { "id": "o19", "orderNumber": "GHC-2604-019", "customerId": "c19", "programId": "p6", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "Tanpa gluten", "specialNotes": "Antar ke kantor Mandiri", "status": "active", "paymentStatus": "verified", "paymentAmount": 720000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-20T12:00:00.000Z", "createdBy": "u2" },
+    { "id": "o20", "orderNumber": "GHC-2604-020", "customerId": "c20", "programId": "p1", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "Antar ke rumah", "status": "active", "paymentStatus": "verified", "paymentAmount": 476000, "paymentMethod": "tokopedia", "orderSource": "tokopedia", "createdAt": "2026-04-20T13:00:00.000Z", "createdBy": "u3" },
+    { "id": "o21", "orderNumber": "GHC-2604-021", "customerId": "c14", "programId": "p4", "mealType": "lunch_dinner", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "Untuk suami, lunch kantor dinner rumah", "status": "active", "paymentStatus": "verified", "paymentAmount": 1080000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T08:00:00.000Z", "createdBy": "u2" },
+    { "id": "o22", "orderNumber": "GHC-2604-022", "customerId": "c15", "programId": "p7", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "Untuk diri sendiri", "status": "active", "paymentStatus": "verified", "paymentAmount": 550000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T08:30:00.000Z", "createdBy": "u3" },
+    { "id": "o23", "orderNumber": "GHC-2604-023", "customerId": "c17", "programId": "p7", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "Lactose intolerant", "specialNotes": "Tambahan untuk asisten rumah tangga", "status": "active", "paymentStatus": "verified", "paymentAmount": 550000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T09:30:00.000Z", "createdBy": "u2" },
+    { "id": "o24", "orderNumber": "GHC-2604-024", "customerId": "c20", "programId": "p4", "mealType": "lunch_dinner", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "", "specialNotes": "Lunch kantor Sucofindo, dinner rumah", "status": "active", "paymentStatus": "pending", "paymentAmount": 1080000, "paymentMethod": "bank_transfer", "orderSource": "manual", "createdAt": "2026-04-21T10:00:00.000Z", "createdBy": "u3" },
+    { "id": "o25", "orderNumber": "GHC-2604-025", "customerId": "c19", "programId": "p7", "mealType": "lunch_only", "durationType": "weekly_5", "startDate": "2026-04-22", "endDate": "2026-04-28", "dietaryNotes": "Tanpa gluten", "specialNotes": "Tambahan untuk ibu", "status": "active", "paymentStatus": "verified", "paymentAmount": 550000, "paymentMethod": "shopee_pay", "orderSource": "shopee", "createdAt": "2026-04-21T11:00:00.000Z", "createdBy": "u2" }
+  ],
+
+  "deliveryRoutes": [
+    { "id": "r1", "deliveryDate": "2026-04-26", "driverId": "u5", "routeLabel": "RUTE 1", "zoneId": "z7", "routePointCount": 7, "status": "finalized", "createdBy": "u4", "createdAt": "2026-04-25T16:00:00.000Z", "notes": "Mulai dari hub BSD pukul 10.30" },
+    { "id": "r2", "deliveryDate": "2026-04-26", "driverId": "u6", "routeLabel": "RUTE 2", "zoneId": "z6", "routePointCount": 11, "status": "finalized", "createdBy": "u4", "createdAt": "2026-04-25T16:15:00.000Z", "notes": "Mulai dari hub Bekasi pukul 10.00" },
+    { "id": "r3", "deliveryDate": "2026-04-26", "driverId": "u7", "routeLabel": "RUTE 3", "zoneId": "z1", "routePointCount": 16, "status": "draft", "createdBy": "u10", "createdAt": "2026-04-25T16:30:00.000Z", "notes": "Mulai dari hub Mampang pukul 09.30" }
+  ],
+
+  "deliveryRouteItems": [
+    { "id": "ri1", "routeId": "r1", "sequenceNumber": "1.1", "orderId": "o1", "customerId": "c2", "deliveryAddress": "De Latinos Cluster De Rio Blok B6 No 5, BSD, Rawabuntu, Tangsel", "deliveryNotes": "Antar pukul 11.30", "estimatedTime": "11:30", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri2", "routeId": "r1", "sequenceNumber": "1.2A", "orderId": "o2", "customerId": "c3", "deliveryAddress": "PT Inovasi Digital, ITC BSD Lantai 3, Tangsel", "deliveryNotes": "Lunch ke kantor", "estimatedTime": "11:45", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri3", "routeId": "r1", "sequenceNumber": "1.2B", "orderId": "o2", "customerId": "c3", "deliveryAddress": "Cluster Vermont Park BSD No. 12, Tangsel", "deliveryNotes": "Dinner ke rumah", "estimatedTime": "17:30", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri4", "routeId": "r1", "sequenceNumber": "1.3", "orderId": "o3", "customerId": "c4", "deliveryAddress": "Jl. Pamulang Permai 2 Blok C5/15, Pamulang", "deliveryNotes": "Rumah cat putih, dekat masjid", "estimatedTime": "12:15", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri5", "routeId": "r1", "sequenceNumber": "1.4", "orderId": "o4", "customerId": "c5", "deliveryAddress": "Cluster Foresta Fiore No. 8, BSD City, Tangsel", "deliveryNotes": "Alergi seafood", "estimatedTime": "12:45", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri6", "routeId": "r1", "sequenceNumber": "1.5A", "orderId": "o5", "customerId": "c6", "deliveryAddress": "Plaza Bintaro Lantai 5, Tangsel", "deliveryNotes": "Lunch ke kantor", "estimatedTime": "13:00", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri7", "routeId": "r1", "sequenceNumber": "1.5B", "orderId": "o5", "customerId": "c6", "deliveryAddress": "Jl. Bintaro Sektor 9 Blok A3 No 22, Bintaro", "deliveryNotes": "Dinner ke rumah", "estimatedTime": "17:45", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+
+    { "id": "ri8", "routeId": "r2", "sequenceNumber": "2.1A", "orderId": "o6", "customerId": "c8", "deliveryAddress": "Kantor Pemkot Bekasi, Jl. Ahmad Yani No. 1", "deliveryNotes": "Lunch ke kantor", "estimatedTime": "11:00", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri9", "routeId": "r2", "sequenceNumber": "2.1B", "orderId": "o6", "customerId": "c8", "deliveryAddress": "Perumahan Galaxy Blok H/22, Bekasi Selatan", "deliveryNotes": "Dinner ke rumah", "estimatedTime": "17:00", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri10", "routeId": "r2", "sequenceNumber": "2.2", "orderId": "o7", "customerId": "c9", "deliveryAddress": "Jl. Pondok Gede Raya No 88, Bekasi", "deliveryNotes": "Rumah pagar hitam, ada anjing", "estimatedTime": "11:20", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri11", "routeId": "r2", "sequenceNumber": "2.3A", "orderId": "o8", "customerId": "c10", "deliveryAddress": "Cluster Grand Galaxy No 15, Bekasi Selatan", "deliveryNotes": "Untuk Bu Sri sendiri", "estimatedTime": "11:40", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri12", "routeId": "r2", "sequenceNumber": "2.3B", "orderId": "o8", "customerId": "c10", "deliveryAddress": "RS Mitra Keluarga Bekasi Timur, lobi utama", "deliveryNotes": "Untuk pasien rawat (lunak)", "estimatedTime": "12:00", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri13", "routeId": "r2", "sequenceNumber": "2.4", "orderId": "o9", "customerId": "c11", "deliveryAddress": "Jl. Tambun Raya No 45, Bekasi Utara", "deliveryNotes": "Titip ke ART Mbak Yati jika tidak ada", "estimatedTime": "12:30", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri14", "routeId": "r2", "sequenceNumber": "2.5A", "orderId": "o10", "customerId": "c12", "deliveryAddress": "Kantor Cabang BCA Jatiasih, Jl. Raya Jatiasih No 100", "deliveryNotes": "Lunch ke kantor, titip security", "estimatedTime": "13:00", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri15", "routeId": "r2", "sequenceNumber": "2.5B", "orderId": "o10", "customerId": "c12", "deliveryAddress": "Jatiasih Indah Blok A2 No 7, Bekasi", "deliveryNotes": "Dinner ke rumah", "estimatedTime": "17:30", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri16", "routeId": "r2", "sequenceNumber": "2.6", "orderId": "o11", "customerId": "c8", "deliveryAddress": "Perumahan Galaxy Blok H/22, Bekasi Selatan", "deliveryNotes": "Tambahan untuk anak SMP", "estimatedTime": "13:20", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri17", "routeId": "r2", "sequenceNumber": "2.7", "orderId": "o12", "customerId": "c10", "deliveryAddress": "Cluster Grand Galaxy No 15, Bekasi Selatan", "deliveryNotes": "Untuk diri sendiri (Weight Loss)", "estimatedTime": "13:40", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri18", "routeId": "r2", "sequenceNumber": "2.8", "orderId": "o13", "customerId": "c12", "deliveryAddress": "Jatiasih Indah Blok A2 No 7, Bekasi", "deliveryNotes": "Untuk istri", "estimatedTime": "14:00", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+
+    { "id": "ri19", "routeId": "r3", "sequenceNumber": "3.1", "orderId": "o14", "customerId": "c14", "deliveryAddress": "Jl. Kemang Raya No 45, Mampang Prapatan", "deliveryNotes": "Vegetarian, tanpa daging dan ayam", "estimatedTime": "10:30", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri20", "routeId": "r3", "sequenceNumber": "3.2A", "orderId": "o15", "customerId": "c15", "deliveryAddress": "Pondok Indah Blok C/12 No 5, Pondok Indah", "deliveryNotes": "Lunch (rendah garam)", "estimatedTime": "10:45", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri21", "routeId": "r3", "sequenceNumber": "3.2B", "orderId": "o15", "customerId": "c15", "deliveryAddress": "RS Pondok Indah PI 1, Jl. Metro Duta Kav UE", "deliveryNotes": "Dinner untuk ortu pasien", "estimatedTime": "17:30", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri22", "routeId": "r3", "sequenceNumber": "3.3", "orderId": "o16", "customerId": "c16", "deliveryAddress": "Jl. Cilandak KKO No 88, Cilandak Timur", "deliveryNotes": "Rumah ujung gang, dekat warung Pak Haji", "estimatedTime": "11:15", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri23", "routeId": "r3", "sequenceNumber": "3.4A", "orderId": "o17", "customerId": "c17", "deliveryAddress": "Plaza Senayan Office Lt 12, Jl. Asia Afrika No 8", "deliveryNotes": "Lunch ke kantor (lactose intolerant)", "estimatedTime": "11:45", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri24", "routeId": "r3", "sequenceNumber": "3.4B", "orderId": "o17", "customerId": "c17", "deliveryAddress": "Apartemen Kebayoran Icon Tower 2 Lt 25 Unit C, Kebayoran", "deliveryNotes": "Dinner ke apartemen, lift dari lobi B", "estimatedTime": "18:00", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri25", "routeId": "r3", "sequenceNumber": "3.5", "orderId": "o18", "customerId": "c18", "deliveryAddress": "Jl. Tebet Raya No 30, Tebet Timur", "deliveryNotes": "", "estimatedTime": "12:15", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri26", "routeId": "r3", "sequenceNumber": "3.6", "orderId": "o19", "customerId": "c19", "deliveryAddress": "Kantor Mandiri Tower Pancoran Lt 21", "deliveryNotes": "Resepsionis Mbak Sari (tanpa gluten)", "estimatedTime": "12:45", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri27", "routeId": "r3", "sequenceNumber": "3.7", "orderId": "o20", "customerId": "c20", "deliveryAddress": "Jl. Mampang Prapatan No 17, Mampang", "deliveryNotes": "Antar ke rumah", "estimatedTime": "13:00", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri28", "routeId": "r3", "sequenceNumber": "3.8A", "orderId": "o21", "customerId": "c14", "deliveryAddress": "Kemang Office Tower Lt 8, Jl. Kemang Raya 67", "deliveryNotes": "Lunch suami ke kantor", "estimatedTime": "13:20", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri29", "routeId": "r3", "sequenceNumber": "3.8B", "orderId": "o21", "customerId": "c14", "deliveryAddress": "Jl. Kemang Raya No 45, Mampang Prapatan", "deliveryNotes": "Dinner suami ke rumah", "estimatedTime": "18:15", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri30", "routeId": "r3", "sequenceNumber": "3.9", "orderId": "o22", "customerId": "c15", "deliveryAddress": "Pondok Indah Blok C/12 No 5, Pondok Indah", "deliveryNotes": "Untuk diri sendiri (Weight Loss)", "estimatedTime": "13:45", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri31", "routeId": "r3", "sequenceNumber": "3.10", "orderId": "o23", "customerId": "c17", "deliveryAddress": "Apartemen Kebayoran Icon Tower 2 Lt 25 Unit C, Kebayoran", "deliveryNotes": "Tambahan untuk ART", "estimatedTime": "14:15", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri32", "routeId": "r3", "sequenceNumber": "3.11A", "orderId": "o24", "customerId": "c20", "deliveryAddress": "Gedung Sucofindo Lt 10, Jl. Pasar Minggu Kav 34", "deliveryNotes": "Lunch ke kantor (HR)", "estimatedTime": "14:30", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri33", "routeId": "r3", "sequenceNumber": "3.11B", "orderId": "o24", "customerId": "c20", "deliveryAddress": "Jl. Mampang Prapatan No 17, Mampang", "deliveryNotes": "Dinner ke rumah", "estimatedTime": "18:30", "status": "pending", "deliveredAt": null, "proofOfDelivery": null },
+    { "id": "ri34", "routeId": "r3", "sequenceNumber": "3.12", "orderId": "o25", "customerId": "c19", "deliveryAddress": "Cluster Pancoran Riverside No 8, Pancoran", "deliveryNotes": "Tambahan untuk ibu (tanpa gluten)", "estimatedTime": "15:00", "status": "pending", "deliveredAt": null, "proofOfDelivery": null }
+  ]
+}

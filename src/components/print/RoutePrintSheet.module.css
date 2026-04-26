@@ -1,0 +1,217 @@
+.previewStack {
+  display: grid;
+  gap: 20px;
+}
+
+.previewPage {
+  background: #ffffff;
+  border: 1px solid #d7dee7;
+  border-radius: 24px;
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.printRoot {
+  display: none;
+}
+
+.routePage {
+  break-before: page;
+  page-break-before: always;
+}
+
+.firstPage {
+  break-before: auto;
+  page-break-before: auto;
+}
+
+.pageInner {
+  padding: 18px 20px;
+  background: #ffffff;
+  color: #111827;
+  font-family: Arial, sans-serif;
+}
+
+.routeHeader {
+  border-bottom: 2px solid #333333;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.headerMeta {
+  font-size: 9px;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.routeTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 10px;
+}
+
+.routeCell {
+  width: 50%;
+  border: 1px solid #333333;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.emptyCell {
+  background: #ffffff;
+}
+
+.customerNumber {
+  font-weight: 700;
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.customerName {
+  font-weight: 700;
+  font-size: 11px;
+  margin: 3px 0 2px;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.programHighlight {
+  color: #b91c1c;
+}
+
+.customerProgram {
+  font-size: 9px;
+  color: #333333;
+  line-height: 1.35;
+}
+
+.customerDiet {
+  font-size: 9px;
+  margin-top: 3px;
+  padding: 2px 4px;
+  background: #fde2e8;
+  color: #9f1239;
+  line-height: 1.35;
+}
+
+.customerRequest {
+  font-size: 9px;
+  margin-top: 3px;
+  padding: 2px 4px;
+  color: #b91c1c;
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.55), rgba(253, 224, 71, 0.55));
+  line-height: 1.35;
+}
+
+.customerPhone {
+  font-size: 9px;
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+.customerAddress {
+  font-size: 9px;
+  margin-top: 3px;
+  white-space: pre-wrap;
+  line-height: 1.35;
+}
+
+.statusHabis {
+  background: #f0f0f0;
+}
+
+.statusPindah {
+  color: #666666;
+  text-decoration: line-through;
+}
+
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
+@media print {
+  :global(body) {
+    font-family: Arial, sans-serif;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  :global(aside),
+  :global(header) {
+    display: none !important;
+  }
+
+  :global(main) {
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  :global(.no-print) {
+    display: none !important;
+  }
+
+  .printRoot {
+    display: block;
+  }
+
+  .previewPage {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .routePage {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  .firstPage {
+    page-break-before: auto;
+    break-before: auto;
+  }
+
+  .routeTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+
+  .routeCell {
+    border: 1px solid #333333;
+    padding: 6px 8px;
+    vertical-align: top;
+    width: 50%;
+  }
+
+  .routeHeader {
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    border-bottom: 2px solid #333333;
+    padding-bottom: 4px;
+  }
+
+  .customerNumber {
+    font-weight: 700;
+    font-size: 9px;
+  }
+
+  .customerName {
+    font-weight: 700;
+    font-size: 11px;
+    margin: 2px 0;
+  }
+
+  .customerProgram,
+  .customerDiet,
+  .customerRequest,
+  .customerPhone,
+  .customerAddress {
+    font-size: 9px;
+  }
+}
