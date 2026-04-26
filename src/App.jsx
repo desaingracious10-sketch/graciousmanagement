@@ -1,6 +1,6 @@
 import { Suspense, lazy } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
-import { getRoleHome, useAuth } from './hooks/useAuth.js'
+import { getRoleHome, getStoredUser, useAuth } from './hooks/useAuth.js'
 import Layout from './components/layout/Layout.jsx'
 
 const Login = lazy(() => import('./pages/Login.jsx'))
@@ -20,8 +20,13 @@ const ZoneManager = lazy(() => import('./pages/ZoneManager.jsx'))
 const DriverList = lazy(() => import('./pages/DriverList.jsx'))
 const UserManager = lazy(() => import('./pages/UserManager.jsx'))
 
+function useSession() {
+  const { currentUser } = useAuth()
+  return currentUser || getStoredUser()
+}
+
 function ProtectedRoute({ roles, children }) {
-  const { currentUser: user } = useAuth()
+  const user = useSession()
 
   if (!user) {
     return <Navigate to="/login" replace />
@@ -35,12 +40,12 @@ function ProtectedRoute({ roles, children }) {
 }
 
 function HomeRedirect() {
-  const { currentUser: user } = useAuth()
+  const user = useSession()
   return <Navigate to={user ? getRoleHome(user.role) : '/login'} replace />
 }
 
 function RoleGuard({ roles }) {
-  const { currentUser: user } = useAuth()
+  const user = useSession()
   if (!user) return <Navigate to="/login" replace />
   if (roles?.length && !roles.includes(user.role)) {
     return <Navigate to={getRoleHome(user.role)} replace />

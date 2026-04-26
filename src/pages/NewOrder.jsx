@@ -17,7 +17,7 @@ import {
   WandSparkles,
   X,
 } from 'lucide-react'
-import db from '../data/db.json' with { type: 'json' }
+import db from '../data/db.json'
 import { useApp } from '../context/AppContext.jsx'
 import { getStoredUser } from '../hooks/useAuth.js'
 import { parseOrderText } from '../utils/smartParser.js'

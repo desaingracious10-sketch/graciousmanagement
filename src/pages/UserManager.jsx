@@ -29,16 +29,18 @@ export default function UserManager() {
   }
 
   function handleSave(form) {
-    const emailExists = users.some((user) => user.email.toLowerCase() === form.email.toLowerCase() && user.id !== form.id)
-    if (emailExists) {
-      setToast({ tone: 'error', message: 'Email sudah dipakai user lain.' })
+    const usernameExists = users.some(
+      (user) => (user.username || '').toLowerCase() === form.username.trim().toLowerCase() && user.id !== form.id,
+    )
+    if (usernameExists) {
+      setToast({ tone: 'error', message: 'Username sudah dipakai user lain.' })
       return
     }
 
     const payload = {
       id: form.id || `u-${Date.now()}`,
       name: form.name.trim(),
-      email: form.email.trim().toLowerCase(),
+      username: form.username.trim().toLowerCase(),
       password: form.password,
       role: form.role,
       phone: form.phone.trim(),
@@ -91,7 +93,7 @@ export default function UserManager() {
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50">
                 <tr className="border-b border-slate-200">
-                  {['Nama', 'Email', 'Role', 'Status', 'Dibuat', 'Aksi'].map((head) => (
+                  {['Nama', 'Username', 'Role', 'Status', 'Dibuat', 'Aksi'].map((head) => (
                     <th key={head} className="px-4 py-3 text-left font-semibold text-slate-700">
                       {head}
                     </th>
@@ -102,7 +104,7 @@ export default function UserManager() {
                 {users.map((user) => (
                   <tr key={user.id} className="border-b border-slate-100 last:border-0">
                     <td className="px-4 py-3 font-medium text-slate-900">{user.name}</td>
-                    <td className="px-4 py-3 text-slate-700">{user.email}</td>
+                    <td className="px-4 py-3 text-slate-700">@{user.username}</td>
                     <td className="px-4 py-3">
                       <RoleBadge role={user.role} />
                     </td>
@@ -159,7 +161,7 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
   const [form, setForm] = useState({
     id: user?.id || '',
     name: user?.name || '',
-    email: user?.email || '',
+    username: user?.username || '',
     role: user?.role || 'sales',
     phone: user?.phone || '',
     password: user?.password || generatePassword(),
@@ -188,8 +190,8 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
         <Field label="Nama Lengkap" required>
           <Input value={form.name} onChange={(event) => patch('name', event.target.value)} />
         </Field>
-        <Field label="Email" required>
-          <Input value={form.email} onChange={(event) => patch('email', event.target.value)} />
+        <Field label="Username" required>
+          <Input value={form.username} onChange={(event) => patch('username', event.target.value)} />
         </Field>
         <Field label="Role" required>
           <Select value={form.role} onChange={(event) => patch('role', event.target.value)} disabled={hasActiveData}>

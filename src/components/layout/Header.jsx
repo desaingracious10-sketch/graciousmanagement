@@ -127,7 +127,7 @@ export default function Header({ currentUser, notifications, onMenuClick }) {
               </div>
               <div className="hidden text-left sm:block">
                 <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{currentUser?.name}</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">{currentUser?.email}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">@{currentUser?.username}</div>
               </div>
               <ChevronDown size={16} className="text-slate-400" />
             </button>

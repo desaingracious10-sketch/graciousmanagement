@@ -1,4 +1,4 @@
-import db from '../data/db.json' with { type: 'json' }
+import db from '../data/db.json'
 
 const INDONESIAN_MONTHS = {
   januari: 1,

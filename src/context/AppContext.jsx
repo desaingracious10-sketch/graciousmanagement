@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react'
-import db from '../data/db.json' with { type: 'json' }
+import db from '../data/db.json'
 import ToastViewport from '../components/ui/Toast.jsx'
 import { ConfirmDialog } from '../components/ui.jsx'
 
@@ -134,26 +134,33 @@ export function AppProvider({ children }) {
       setTheme,
       toggleTheme: () => setTheme((current) => (current === 'dark' ? 'light' : 'dark')),
       confirmAction,
-      login: async (email, password) => {
+      login: async (username, password) => {
+        const normalized = String(username).trim().toLowerCase()
         const found = state.users.find(
           (user) =>
-            user.email?.toLowerCase() === String(email).trim().toLowerCase() &&
+            (user.username || '').toLowerCase() === normalized &&
             user.password === password &&
-            user.isActive,
+            user.isActive !== false,
         )
 
         await delay(SAVE_DELAY_MS)
 
         if (!found) {
-          showToast({ tone: 'error', message: 'Email atau password salah.' })
-          return { ok: false, error: 'Email atau password salah.' }
+          showToast({ tone: 'error', message: 'Username atau password salah.' })
+          return { ok: false, error: 'Username atau password salah. Silakan coba lagi.' }
         }
 
         const session = {
           id: found.id,
           name: found.name,
           role: found.role,
-          email: found.email,
+          username: found.username,
+        }
+
+        try {
+          localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(session))
+        } catch {
+          // ignore storage failures; state still updates
         }
 
         dispatch({ type: 'LOGIN', payload: session })
@@ -161,6 +168,11 @@ export function AppProvider({ children }) {
         return { ok: true, user: session }
       },
       logout: () => {
+        try {
+          localStorage.removeItem(STORAGE_KEYS.currentUser)
+        } catch {
+          // ignore
+        }
         dispatch({ type: 'LOGOUT' })
         showToast({ tone: 'info', message: 'Sesi login sudah diakhiri.' })
       },

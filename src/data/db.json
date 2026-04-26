@@ -1,15 +1,15 @@
 {
   "users": [
-    { "id": "u1", "name": "Admin Utama", "email": "admin@gracioushealthy.com", "password": "admin123", "role": "superadmin", "phone": "0811000001", "isActive": true, "createdAt": "2026-01-01T00:00:00.000Z" },
-    { "id": "u2", "name": "Admin Sales", "email": "sales@gracious.com", "password": "sales123", "role": "sales", "phone": "0811000002", "isActive": true, "createdAt": "2026-01-05T00:00:00.000Z" },
-    { "id": "u3", "name": "Budi Sales", "email": "budi@gracious.com", "password": "sales123", "role": "sales", "phone": "0811000003", "isActive": true, "createdAt": "2026-01-05T00:00:00.000Z" },
-    { "id": "u4", "name": "Admin Alamat", "email": "alamat@gracious.com", "password": "alamat123", "role": "address_admin", "phone": "0811000004", "isActive": true, "createdAt": "2026-01-08T00:00:00.000Z" },
-    { "id": "u10", "name": "Dewi Alamat", "email": "dewi@gracious.com", "password": "alamat123", "role": "address_admin", "phone": "0811000010", "isActive": true, "createdAt": "2026-01-10T00:00:00.000Z" },
-    { "id": "u5", "name": "Driver Demo", "email": "drivername@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000005", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
-    { "id": "u6", "name": "Aji", "email": "aji@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000006", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
-    { "id": "u7", "name": "Abdul", "email": "abdul@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000007", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
-    { "id": "u8", "name": "Ariyadi", "email": "ariyadi@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000008", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
-    { "id": "u9", "name": "Endang", "email": "endang@gracious.com", "password": "driver123", "role": "driver", "phone": "0811000009", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" }
+    { "id": "u1", "name": "Admin Utama", "username": "adminutama", "password": "Admin@Gracious2026", "role": "superadmin", "phone": "0811000001", "isActive": true, "createdAt": "2026-01-01T00:00:00.000Z" },
+    { "id": "u2", "name": "Sarah", "username": "sarah.sales", "password": "Sales@2026", "role": "sales", "phone": "0811000002", "isActive": true, "createdAt": "2026-01-05T00:00:00.000Z" },
+    { "id": "u3", "name": "Budi", "username": "budi.sales", "password": "Sales@2026", "role": "sales", "phone": "0811000003", "isActive": true, "createdAt": "2026-01-05T00:00:00.000Z" },
+    { "id": "u4", "name": "Rini", "username": "rini.alamat", "password": "Alamat@2026", "role": "address_admin", "phone": "0811000004", "isActive": true, "createdAt": "2026-01-08T00:00:00.000Z" },
+    { "id": "u10", "name": "Dewi", "username": "dewi.alamat", "password": "Alamat@2026", "role": "address_admin", "phone": "0811000010", "isActive": true, "createdAt": "2026-01-10T00:00:00.000Z" },
+    { "id": "u5", "name": "Tisna", "username": "tisna.driver", "password": "Driver@2026", "role": "driver", "phone": "0811000005", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
+    { "id": "u6", "name": "Aji", "username": "aji.driver", "password": "Driver@2026", "role": "driver", "phone": "0811000006", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
+    { "id": "u7", "name": "Abdul", "username": "abdul.driver", "password": "Driver@2026", "role": "driver", "phone": "0811000007", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
+    { "id": "u8", "name": "Ariyadi", "username": "ariyadi.driver", "password": "Driver@2026", "role": "driver", "phone": "0811000008", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" },
+    { "id": "u9", "name": "Endang", "username": "endang.driver", "password": "Driver@2026", "role": "driver", "phone": "0811000009", "isActive": true, "createdAt": "2026-01-12T00:00:00.000Z" }
   ],
 
   "zones": [

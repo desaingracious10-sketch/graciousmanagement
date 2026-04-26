@@ -1,4 +1,4 @@
-import db from '../data/db.json' with { type: 'json' }
+import db from '../data/db.json'
 
 const STORAGE_ZONES_KEY = 'gracious_zones_extra'
 

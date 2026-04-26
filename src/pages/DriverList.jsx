@@ -106,7 +106,7 @@ export default function DriverList() {
             saveDriverPatch({
               id: form.id || `u-driver-${Date.now()}`,
               name: form.name.trim(),
-              email: form.email.trim().toLowerCase(),
+              username: form.username.trim().toLowerCase(),
               password: form.password,
               role: 'driver',
               phone: form.phone.trim(),
@@ -129,7 +129,7 @@ function DriverModal({ driver, zones, onClose, onSave }) {
   const [form, setForm] = useState({
     id: driver?.id || '',
     name: driver?.name || '',
-    email: driver?.email || '',
+    username: driver?.username || '',
     phone: driver?.phone || '',
     password: driver?.password || `driver${Math.random().toString(36).slice(2, 7)}`,
     createdAt: driver?.createdAt || '',
@@ -154,8 +154,8 @@ function DriverModal({ driver, zones, onClose, onSave }) {
           <Field label="Nama Lengkap" required>
             <Input value={form.name} onChange={(event) => patch('name', event.target.value)} />
           </Field>
-          <Field label="Email" required>
-            <Input value={form.email} onChange={(event) => patch('email', event.target.value)} />
+          <Field label="Username" required>
+            <Input value={form.username} onChange={(event) => patch('username', event.target.value)} />
           </Field>
           <Field label="No HP">
             <Input value={form.phone} onChange={(event) => patch('phone', event.target.value)} />
