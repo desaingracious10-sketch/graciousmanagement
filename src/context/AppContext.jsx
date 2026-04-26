@@ -1,79 +1,208 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react'
-import db from '../data/db.json'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from 'react'
 import ToastViewport from '../components/ui/Toast.jsx'
 import { ConfirmDialog } from '../components/ui.jsx'
+import { SUPABASE_CONFIGURED } from '../lib/supabase.js'
+import * as db from '../lib/db.js'
 
+// Only session/UI state lives in localStorage now. All app data goes through Supabase.
 export const STORAGE_KEYS = {
-  customers: 'gracious_customers_extra',
-  orders: 'gracious_orders_extra',
-  notifications: 'gracious_admin_notifications',
-  routes: 'gracious_routes_extra',
-  routeItems: 'gracious_route_items_extra',
-  users: 'gracious_users_extra',
-  zones: 'gracious_zones_extra',
-  addressChangeLogs: 'gracious_address_change_log',
-  activityLogs: 'gracious_activity_logs_extra',
   currentUser: 'gracious_user',
   theme: 'gracious_theme',
 }
 
-const SAVE_DELAY_MS = 300
-let suppressStorageEvents = 0
-
 const AppContext = createContext(null)
 
+const initialState = {
+  users: [],
+  zones: [],
+  programs: [],
+  customers: [],
+  orders: [],
+  deliveryRoutes: [],
+  deliveryRouteItems: [],
+  addressChangeLogs: [],
+  activityLogs: [],
+  notifications: [],
+  weeklyMenus: [],
+  currentUser: null,
+  isLoading: true,
+  isConnected: false,
+  loadError: null,
+}
+
+function appReducer(state, action) {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload }
+    case 'SET_CONNECTED':
+      return { ...state, isConnected: action.payload }
+    case 'SET_LOAD_ERROR':
+      return { ...state, loadError: action.payload }
+    case 'HYDRATE':
+      return { ...state, ...action.payload, isLoading: false, isConnected: true, loadError: null }
+    case 'LOGIN':
+      return { ...state, currentUser: action.payload }
+    case 'LOGOUT':
+      return { ...state, currentUser: null }
+    case 'UPSERT': {
+      const { key, item } = action.payload
+      const list = state[key] || []
+      const idx = list.findIndex((entry) => entry.id === item.id)
+      const next = idx === -1 ? [item, ...list] : list.map((entry) => (entry.id === item.id ? { ...entry, ...item } : entry))
+      return { ...state, [key]: next }
+    }
+    case 'REMOVE': {
+      const { key, id } = action.payload
+      return { ...state, [key]: (state[key] || []).filter((entry) => entry.id !== id) }
+    }
+    case 'PREPEND': {
+      const { key, item } = action.payload
+      return { ...state, [key]: [item, ...(state[key] || [])] }
+    }
+    case 'PATCH_ITEM': {
+      const { key, id, patch } = action.payload
+      return {
+        ...state,
+        [key]: (state[key] || []).map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)),
+      }
+    }
+    case 'SET_LIST':
+      return { ...state, [action.payload.key]: action.payload.list }
+    default:
+      return state
+  }
+}
+
+function readStoredUser() {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.currentUser)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function readStoredTheme() {
+  if (typeof window === 'undefined') return 'light'
+  try {
+    return localStorage.getItem(STORAGE_KEYS.theme) || 'light'
+  } catch {
+    return 'light'
+  }
+}
+
 export function AppProvider({ children }) {
-  const [state, dispatch] = useReducer(appReducer, undefined, loadInitialState)
+  const [state, dispatch] = useReducer(appReducer, undefined, () => ({
+    ...initialState,
+    currentUser: readStoredUser(),
+  }))
   const [toasts, setToasts] = useState([])
-  const [booting, setBooting] = useState(true)
   const [theme, setTheme] = useState(() => readStoredTheme())
   const [confirmState, setConfirmState] = useState(null)
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      dispatch({ type: 'SET_LOADING', payload: false })
-      setBooting(false)
-    }, 1500)
-    return () => window.clearTimeout(timeoutId)
-  }, [])
-
+  // ===== THEME PERSIST =====
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
-    localStorage.setItem(STORAGE_KEYS.theme, theme)
+    try {
+      localStorage.setItem(STORAGE_KEYS.theme, theme)
+    } catch {
+      // ignore
+    }
   }, [theme])
 
-  useEffect(() => {
-    persistStateSlices(state)
-  }, [
-    state.users,
-    state.zones,
-    state.customers,
-    state.orders,
-    state.deliveryRoutes,
-    state.deliveryRouteItems,
-    state.addressChangeLogs,
-    state.activityLogs,
-    state.notifications,
-    state.currentUser,
-  ])
-
-  useEffect(() => {
-    const restorePatchedStorage = patchStorageEvents()
-
-    function handleExternalSync() {
-      dispatch({ type: 'SYNC_FROM_STORAGE', payload: loadInitialState() })
+  // ===== INITIAL DATA LOAD FROM SUPABASE =====
+  const loadAllData = useCallback(async () => {
+    if (!SUPABASE_CONFIGURED) {
+      dispatch({
+        type: 'SET_LOAD_ERROR',
+        payload:
+          'Supabase belum dikonfigurasi. Set VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di .env (atau di Vercel env settings) lalu reload.',
+      })
+      dispatch({ type: 'SET_LOADING', payload: false })
+      return
     }
 
-    window.addEventListener('storage', handleExternalSync)
-    window.addEventListener('gracious-storage-updated', handleExternalSync)
+    dispatch({ type: 'SET_LOADING', payload: true })
+    try {
+      const [
+        users,
+        zones,
+        programs,
+        customers,
+        orders,
+        deliveryRoutes,
+        deliveryRouteItems,
+        addressChangeLogs,
+        activityLogs,
+        weeklyMenus,
+      ] = await Promise.all([
+        db.getUsers(),
+        db.getZones(),
+        db.getPrograms(),
+        db.getCustomers(),
+        db.getOrders(),
+        db.getDeliveryRoutes(),
+        db.getDeliveryRouteItems(),
+        db.getAddressChangeLogs().catch(() => []),
+        db.getActivityLogs(50).catch(() => []),
+        db.getWeeklyMenus().catch(() => []),
+      ])
 
-    return () => {
-      restorePatchedStorage()
-      window.removeEventListener('storage', handleExternalSync)
-      window.removeEventListener('gracious-storage-updated', handleExternalSync)
+      dispatch({
+        type: 'HYDRATE',
+        payload: {
+          users,
+          zones,
+          programs,
+          customers,
+          orders,
+          deliveryRoutes,
+          deliveryRouteItems,
+          addressChangeLogs,
+          activityLogs,
+          weeklyMenus,
+        },
+      })
+    } catch (error) {
+      console.error('[Gracious] loadAllData failed:', error)
+      dispatch({
+        type: 'SET_LOAD_ERROR',
+        payload: error?.message || 'Gagal memuat data dari server. Cek koneksi internet & konfigurasi Supabase.',
+      })
+      dispatch({ type: 'SET_LOADING', payload: false })
     }
   }, [])
 
+  useEffect(() => {
+    loadAllData()
+  }, [loadAllData])
+
+  // ===== NOTIFICATIONS LOAD WHEN USER CHANGES =====
+  useEffect(() => {
+    if (!state.currentUser || !SUPABASE_CONFIGURED) return
+    let cancelled = false
+    db.getNotifications(state.currentUser.id, state.currentUser.role)
+      .then((notifs) => {
+        if (!cancelled) {
+          dispatch({ type: 'SET_LIST', payload: { key: 'notifications', list: notifs } })
+        }
+      })
+      .catch((error) => console.error('[Gracious] notif load failed:', error))
+    return () => {
+      cancelled = true
+    }
+  }, [state.currentUser])
+
+  // ===== TOAST + CONFIRM HELPERS =====
   const api = useMemo(() => {
     function showToast(input) {
       const toast = {
@@ -87,23 +216,6 @@ export function AppProvider({ children }) {
 
     function removeToast(id) {
       setToasts((current) => current.filter((toast) => toast.id !== id))
-    }
-
-    async function runSimulatedSave(work, options = {}) {
-      dispatch({ type: 'SET_LOADING', payload: true })
-      await delay(SAVE_DELAY_MS)
-      const result = typeof work === 'function' ? work() : null
-      dispatch({ type: 'SET_LOADING', payload: false })
-
-      if (options.toast) {
-        showToast(
-          typeof options.toast === 'string'
-            ? { tone: 'success', message: options.toast }
-            : options.toast,
-        )
-      }
-
-      return result
     }
 
     function confirmAction(options) {
@@ -122,11 +234,290 @@ export function AppProvider({ children }) {
       })
     }
 
+    async function withToast(work, { successToast, errorToast } = {}) {
+      try {
+        const result = await work()
+        if (successToast) {
+          showToast(typeof successToast === 'string' ? { tone: 'success', message: successToast } : successToast)
+        }
+        return result
+      } catch (error) {
+        console.error('[Gracious] action failed:', error)
+        showToast({
+          tone: 'error',
+          message: errorToast || error?.message || 'Operasi gagal. Coba lagi.',
+        })
+        throw error
+      }
+    }
+
+    // ===== AUTH =====
+    async function login(username, password) {
+      if (!SUPABASE_CONFIGURED) {
+        const err = 'Supabase belum dikonfigurasi.'
+        showToast({ tone: 'error', message: err })
+        return { ok: false, error: err }
+      }
+      const result = await db.loginUser(username, password)
+      if (!result.ok) {
+        showToast({ tone: 'error', message: result.error })
+        return result
+      }
+      try {
+        localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(result.user))
+      } catch {
+        // ignore
+      }
+      dispatch({ type: 'LOGIN', payload: result.user })
+      showToast({ tone: 'success', message: `Selamat datang, ${result.user.name}.` })
+      return { ok: true, user: result.user }
+    }
+
+    function logout() {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.currentUser)
+      } catch {
+        // ignore
+      }
+      dispatch({ type: 'LOGOUT' })
+      showToast({ tone: 'info', message: 'Sesi login sudah diakhiri.' })
+    }
+
+    // ===== ORDER ACTIONS (backward-compat names: addOrder, updateOrder, deleteOrder, verifyOrder) =====
+    const addOrder = (order, toast = 'Pesanan berhasil ditambahkan.') =>
+      withToast(
+        async () => {
+          const created = await db.createOrder(order)
+          dispatch({ type: 'PREPEND', payload: { key: 'orders', item: created } })
+          return created
+        },
+        { successToast: toast },
+      )
+
+    const updateOrder = (order, toast = 'Pesanan berhasil diperbarui.') =>
+      withToast(
+        async () => {
+          const { id, ...rest } = order
+          const updated = await db.updateOrder(id, rest)
+          dispatch({ type: 'UPSERT', payload: { key: 'orders', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    const deleteOrder = (orderId, toast = 'Pesanan berhasil dihapus.') =>
+      withToast(
+        async () => {
+          await db.deleteOrder(orderId)
+          dispatch({ type: 'REMOVE', payload: { key: 'orders', id: orderId } })
+        },
+        { successToast: toast },
+      )
+
+    const verifyOrder = (payload, toast = 'Pesanan berhasil diverifikasi.') =>
+      withToast(
+        async () => {
+          // payload may be { id, paymentStatus, ... } from existing pages
+          const { id, ...rest } = payload
+          const updated = await db.updateOrder(id, rest)
+          dispatch({ type: 'UPSERT', payload: { key: 'orders', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    // ===== CUSTOMERS =====
+    const addCustomer = (customer, toast = 'Customer berhasil ditambahkan.') =>
+      withToast(
+        async () => {
+          const created = await db.createCustomer(customer)
+          dispatch({ type: 'PREPEND', payload: { key: 'customers', item: created } })
+          return created
+        },
+        { successToast: toast },
+      )
+
+    const updateCustomer = (customer, toast = 'Data customer berhasil diperbarui.') =>
+      withToast(
+        async () => {
+          const { id, ...rest } = customer
+          const updated = await db.updateCustomer(id, rest)
+          dispatch({ type: 'UPSERT', payload: { key: 'customers', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    const updateAddress = (payload, toast = 'Alamat customer berhasil diperbarui.') =>
+      withToast(
+        async () => {
+          // payload shape from existing pages: { customer, log }
+          const { customer, log } = payload
+          const newAddress = customer.addressPrimary
+          const reason = log?.reason || log?.changeReason || ''
+          const changedBy = log?.changedBy || state.currentUser?.id
+          const updated = await db.updateCustomerAddress(customer.id, newAddress, reason, changedBy)
+          dispatch({ type: 'UPSERT', payload: { key: 'customers', item: updated } })
+          if (log) {
+            dispatch({
+              type: 'PREPEND',
+              payload: {
+                key: 'addressChangeLogs',
+                item: {
+                  ...log,
+                  id: log.id || `addr-log-${Date.now()}`,
+                  customerId: customer.id,
+                  newAddress,
+                },
+              },
+            })
+          }
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    // ===== ROUTES =====
+    const addRoute = (route, toast = 'Rute berhasil ditambahkan.') =>
+      withToast(
+        async () => {
+          const created = await db.createDeliveryRoute(route)
+          dispatch({ type: 'PREPEND', payload: { key: 'deliveryRoutes', item: created } })
+          return created
+        },
+        { successToast: toast },
+      )
+
+    const updateRoute = (route, toast = 'Rute berhasil diperbarui.') =>
+      withToast(
+        async () => {
+          const { id, ...rest } = route
+          const updated = await db.updateDeliveryRoute(id, rest)
+          dispatch({ type: 'UPSERT', payload: { key: 'deliveryRoutes', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    const finalizeRoute = (payload, toast = 'Rute berhasil difinalize.') =>
+      withToast(
+        async () => {
+          // payload = { id, status: 'finalized', ... }
+          const { id, ...rest } = payload
+          const updated = await db.updateDeliveryRoute(id, { status: 'finalized', ...rest })
+          dispatch({ type: 'UPSERT', payload: { key: 'deliveryRoutes', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    const addRouteItem = (item, toast = 'Item rute berhasil ditambahkan.') =>
+      withToast(
+        async () => {
+          const created = await db.createRouteItem(item)
+          dispatch({ type: 'PREPEND', payload: { key: 'deliveryRouteItems', item: created } })
+          // Refresh route point count
+          if (created.routeId) {
+            const refreshedRoutes = await db.getDeliveryRoutes()
+            dispatch({ type: 'SET_LIST', payload: { key: 'deliveryRoutes', list: refreshedRoutes } })
+          }
+          return created
+        },
+        { successToast: toast },
+      )
+
+    const updateRouteItem = (item, toast = 'Item rute berhasil diperbarui.') =>
+      withToast(
+        async () => {
+          const { id, ...rest } = item
+          const updated = await db.updateRouteItem(id, rest)
+          dispatch({ type: 'UPSERT', payload: { key: 'deliveryRouteItems', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    // ===== USERS =====
+    const addUser = (user, toast = 'User berhasil ditambahkan.') =>
+      withToast(
+        async () => {
+          const created = await db.createUser(user)
+          dispatch({ type: 'PREPEND', payload: { key: 'users', item: created } })
+          return created
+        },
+        { successToast: toast },
+      )
+
+    const updateUser = (user, toast = 'User berhasil diperbarui.') =>
+      withToast(
+        async () => {
+          const { id, ...rest } = user
+          const updated = await db.updateUser(id, rest)
+          dispatch({ type: 'UPSERT', payload: { key: 'users', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    const deleteUser = (userId, toast = 'User berhasil dinonaktifkan.') =>
+      withToast(
+        async () => {
+          await db.deactivateUser(userId)
+          dispatch({ type: 'PATCH_ITEM', payload: { key: 'users', id: userId, patch: { isActive: false } } })
+        },
+        { successToast: toast },
+      )
+
+    // ===== ZONES =====
+    const addZone = (zone, toast = 'Zona berhasil ditambahkan.') =>
+      withToast(
+        async () => {
+          const created = await db.createZone(zone)
+          dispatch({ type: 'PREPEND', payload: { key: 'zones', item: created } })
+          return created
+        },
+        { successToast: toast },
+      )
+
+    const updateZone = (zone, toast = 'Zona berhasil diperbarui.') =>
+      withToast(
+        async () => {
+          const { id, ...rest } = zone
+          const updated = await db.updateZone(id, rest)
+          dispatch({ type: 'UPSERT', payload: { key: 'zones', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    // ===== ACTIVITY LOG / NOTIF =====
+    const addActivityLog = async (log) => {
+      try {
+        await db.addActivityLog(log.userId, log.action, log.entityType, log.entityId, log.details)
+        dispatch({ type: 'PREPEND', payload: { key: 'activityLogs', item: { ...log, id: `log-${Date.now()}` } } })
+      } catch (error) {
+        console.error('[Gracious] activity log failed:', error)
+      }
+    }
+
+    const addSystemNotification = async (notification) => {
+      try {
+        const created = await db.createNotification(notification)
+        dispatch({ type: 'PREPEND', payload: { key: 'notifications', item: created } })
+        return created
+      } catch (error) {
+        console.error('[Gracious] notif insert failed:', error)
+      }
+    }
+
     return {
+      // ===== STATE =====
       ...state,
-      rawDb: db,
-      booting,
+      booting: state.isLoading,
+      // Backward-compat: rawDb is no longer used (data comes from Supabase). Keep as empty stub.
+      rawDb: { users: [], zones: [], programs: [], customers: [], orders: [], deliveryRoutes: [], deliveryRouteItems: [] },
       theme,
+      // ===== UI HELPERS =====
       dispatch,
       toasts,
       showToast,
@@ -134,92 +525,37 @@ export function AppProvider({ children }) {
       setTheme,
       toggleTheme: () => setTheme((current) => (current === 'dark' ? 'light' : 'dark')),
       confirmAction,
-      login: async (username, password) => {
-        const normalized = String(username).trim().toLowerCase()
-        const found = state.users.find(
-          (user) =>
-            (user.username || '').toLowerCase() === normalized &&
-            user.password === password &&
-            user.isActive !== false,
-        )
-
-        await delay(SAVE_DELAY_MS)
-
-        if (!found) {
-          showToast({ tone: 'error', message: 'Username atau password salah.' })
-          return { ok: false, error: 'Username atau password salah. Silakan coba lagi.' }
-        }
-
-        const session = {
-          id: found.id,
-          name: found.name,
-          role: found.role,
-          username: found.username,
-        }
-
-        try {
-          localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(session))
-        } catch {
-          // ignore storage failures; state still updates
-        }
-
-        dispatch({ type: 'LOGIN', payload: session })
-        showToast({ tone: 'success', message: `Selamat datang, ${found.name}.` })
-        return { ok: true, user: session }
-      },
-      logout: () => {
-        try {
-          localStorage.removeItem(STORAGE_KEYS.currentUser)
-        } catch {
-          // ignore
-        }
-        dispatch({ type: 'LOGOUT' })
-        showToast({ tone: 'info', message: 'Sesi login sudah diakhiri.' })
-      },
-      addOrder: (order, toast = 'Pesanan berhasil ditambahkan.') =>
-        runSimulatedSave(() => dispatch({ type: 'ADD_ORDER', payload: order }), { toast }),
-      updateOrder: (order, toast = 'Pesanan berhasil diperbarui.') =>
-        runSimulatedSave(() => dispatch({ type: 'UPDATE_ORDER', payload: order }), { toast }),
-      deleteOrder: (orderId, toast = 'Pesanan berhasil dihapus.') =>
-        runSimulatedSave(() => dispatch({ type: 'DELETE_ORDER', payload: orderId }), { toast }),
-      verifyOrder: (payload, toast = 'Pesanan berhasil diverifikasi.') =>
-        runSimulatedSave(() => dispatch({ type: 'VERIFY_ORDER', payload }), { toast }),
-      addCustomer: (customer, toast = 'Customer berhasil ditambahkan.') =>
-        runSimulatedSave(() => dispatch({ type: 'ADD_CUSTOMER', payload: customer }), { toast }),
-      updateCustomer: (customer, toast = 'Data customer berhasil diperbarui.') =>
-        runSimulatedSave(() => dispatch({ type: 'UPDATE_CUSTOMER', payload: customer }), { toast }),
-      updateAddress: (payload, toast = 'Alamat customer berhasil diperbarui.') =>
-        runSimulatedSave(() => dispatch({ type: 'UPDATE_ADDRESS', payload }), { toast }),
-      addRoute: (route, toast = 'Rute berhasil ditambahkan.') =>
-        runSimulatedSave(() => dispatch({ type: 'ADD_ROUTE', payload: route }), { toast }),
-      updateRoute: (route, toast = 'Rute berhasil diperbarui.') =>
-        runSimulatedSave(() => dispatch({ type: 'UPDATE_ROUTE', payload: route }), { toast }),
-      finalizeRoute: (payload, toast = 'Rute berhasil difinalize.') =>
-        runSimulatedSave(() => dispatch({ type: 'FINALIZE_ROUTE', payload }), { toast }),
-      addRouteItem: (item, toast = 'Item rute berhasil ditambahkan.') =>
-        runSimulatedSave(() => dispatch({ type: 'ADD_ROUTE_ITEM', payload: item }), { toast }),
-      updateRouteItem: (item, toast = 'Item rute berhasil diperbarui.') =>
-        runSimulatedSave(() => dispatch({ type: 'UPDATE_ROUTE_ITEM', payload: item }), { toast }),
-      addUser: (user, toast = 'User berhasil ditambahkan.') =>
-        runSimulatedSave(() => dispatch({ type: 'ADD_USER', payload: user }), { toast }),
-      updateUser: (user, toast = 'User berhasil diperbarui.') =>
-        runSimulatedSave(() => dispatch({ type: 'UPDATE_USER', payload: user }), { toast }),
-      deleteUser: (userId, toast = 'User berhasil dihapus.') =>
-        runSimulatedSave(() => dispatch({ type: 'DELETE_USER', payload: userId }), { toast }),
-      addZone: (zone, toast = 'Zona berhasil ditambahkan.') =>
-        runSimulatedSave(() => dispatch({ type: 'ADD_ZONE', payload: zone }), { toast }),
-      updateZone: (zone, toast = 'Zona berhasil diperbarui.') =>
-        runSimulatedSave(() => dispatch({ type: 'UPDATE_ZONE', payload: zone }), { toast }),
-      addActivityLog: (log) => dispatch({ type: 'ADD_ACTIVITY_LOG', payload: log }),
-      addSystemNotification: (notification) =>
-        dispatch({ type: 'ADD_SYSTEM_NOTIFICATION', payload: notification }),
+      // ===== ACTIONS =====
+      login,
+      logout,
+      addOrder,
+      updateOrder,
+      deleteOrder,
+      verifyOrder,
+      addCustomer,
+      updateCustomer,
+      updateAddress,
+      addRoute,
+      updateRoute,
+      finalizeRoute,
+      addRouteItem,
+      updateRouteItem,
+      addUser,
+      updateUser,
+      deleteUser,
+      addZone,
+      updateZone,
+      addActivityLog,
+      addSystemNotification,
+      refreshData: loadAllData,
     }
-  }, [state, toasts])
+  }, [state, toasts, theme, loadAllData])
 
   return (
     <AppContext.Provider value={api}>
       {children}
-      {booting ? <LoadingOverlay /> : null}
+      {state.isLoading ? <LoadingOverlay /> : null}
+      {state.loadError ? <ErrorScreen message={state.loadError} onRetry={loadAllData} /> : null}
       <ToastViewport toasts={toasts} onDismiss={api.removeToast} />
       <ConfirmDialog
         open={!!confirmState}
@@ -237,268 +573,8 @@ export function AppProvider({ children }) {
 
 export function useApp() {
   const context = useContext(AppContext)
-  if (!context) {
-    throw new Error('useApp must be used within AppProvider')
-  }
+  if (!context) throw new Error('useApp must be used within AppProvider')
   return context
-}
-
-function appReducer(state, action) {
-  switch (action.type) {
-    case 'SYNC_FROM_STORAGE':
-      return action.payload
-    case 'SET_LOADING':
-      return { ...state, isLoading: action.payload }
-    case 'LOGIN':
-      return { ...state, currentUser: action.payload }
-    case 'LOGOUT':
-      return { ...state, currentUser: null }
-    case 'ADD_ORDER':
-      return { ...state, orders: [...state.orders, action.payload] }
-    case 'UPDATE_ORDER':
-      return { ...state, orders: upsertRecord(state.orders, action.payload) }
-    case 'DELETE_ORDER':
-      return { ...state, orders: removeRecord(state.orders, action.payload) }
-    case 'VERIFY_ORDER': {
-      const current = state.orders.find((order) => order.id === action.payload.id)
-      if (!current) return state
-      return { ...state, orders: upsertRecord(state.orders, { ...current, ...action.payload }) }
-    }
-    case 'ADD_CUSTOMER':
-      return { ...state, customers: [...state.customers, action.payload] }
-    case 'UPDATE_CUSTOMER':
-      return { ...state, customers: upsertRecord(state.customers, action.payload) }
-    case 'UPDATE_ADDRESS': {
-      const { customer, log } = action.payload
-      return {
-        ...state,
-        customers: upsertRecord(state.customers, customer),
-        addressChangeLogs: log ? [...state.addressChangeLogs, log] : state.addressChangeLogs,
-      }
-    }
-    case 'ADD_ROUTE':
-      return { ...state, deliveryRoutes: [...state.deliveryRoutes, action.payload] }
-    case 'UPDATE_ROUTE':
-      return { ...state, deliveryRoutes: upsertRecord(state.deliveryRoutes, action.payload) }
-    case 'FINALIZE_ROUTE': {
-      const current = state.deliveryRoutes.find((route) => route.id === action.payload.id)
-      if (!current) return state
-      return {
-        ...state,
-        deliveryRoutes: upsertRecord(state.deliveryRoutes, { ...current, ...action.payload }),
-      }
-    }
-    case 'ADD_ROUTE_ITEM':
-      return { ...state, deliveryRouteItems: [...state.deliveryRouteItems, action.payload] }
-    case 'UPDATE_ROUTE_ITEM':
-      return { ...state, deliveryRouteItems: upsertRecord(state.deliveryRouteItems, action.payload) }
-    case 'ADD_USER':
-      return { ...state, users: [...state.users, action.payload] }
-    case 'UPDATE_USER':
-      return { ...state, users: upsertRecord(state.users, action.payload) }
-    case 'DELETE_USER':
-      return { ...state, users: removeRecord(state.users, action.payload) }
-    case 'ADD_ZONE':
-      return { ...state, zones: [...state.zones, action.payload] }
-    case 'UPDATE_ZONE':
-      return { ...state, zones: upsertRecord(state.zones, action.payload) }
-    case 'ADD_ACTIVITY_LOG':
-      return { ...state, activityLogs: [action.payload, ...state.activityLogs] }
-    case 'ADD_SYSTEM_NOTIFICATION':
-      return { ...state, notifications: [action.payload, ...state.notifications].slice(0, 20) }
-    default:
-      return state
-  }
-}
-
-function loadInitialState() {
-  if (typeof window === 'undefined') {
-    return createStateSnapshot()
-  }
-
-  return createStateSnapshot({
-    users: mergeRecords(db.users || [], readStorageArray(STORAGE_KEYS.users)),
-    zones: mergeRecords(db.zones || [], readStorageArray(STORAGE_KEYS.zones)),
-    programs: db.programs || [],
-    customers: mergeRecords(db.customers || [], readStorageArray(STORAGE_KEYS.customers)),
-    orders: mergeRecords(db.orders || [], readStorageArray(STORAGE_KEYS.orders)),
-    deliveryRoutes: mergeRecords(db.deliveryRoutes || [], readStorageArray(STORAGE_KEYS.routes)),
-    deliveryRouteItems: mergeRecords(db.deliveryRouteItems || [], readStorageArray(STORAGE_KEYS.routeItems)),
-    addressChangeLogs: readStorageArray(STORAGE_KEYS.addressChangeLogs),
-    activityLogs: mergeRecords(db.activity_logs || db.activityLogs || [], readStorageArray(STORAGE_KEYS.activityLogs)),
-    notifications: readStorageArray(STORAGE_KEYS.notifications),
-    currentUser: readStoredUser(),
-    isLoading: true,
-  })
-}
-
-function createStateSnapshot(overrides = {}) {
-  return {
-    users: [],
-    zones: [],
-    programs: [],
-    customers: [],
-    orders: [],
-    deliveryRoutes: [],
-    deliveryRouteItems: [],
-    addressChangeLogs: [],
-    activityLogs: [],
-    notifications: [],
-    currentUser: null,
-    isLoading: false,
-    ...overrides,
-  }
-}
-
-function persistStateSlices(state) {
-  if (typeof window === 'undefined') return
-
-  suppressStorageEvents += 1
-  try {
-    writeStorageArray(STORAGE_KEYS.users, buildPersistedExtras(db.users || [], state.users))
-    writeStorageArray(STORAGE_KEYS.zones, buildPersistedExtras(db.zones || [], state.zones))
-    writeStorageArray(STORAGE_KEYS.customers, buildPersistedExtras(db.customers || [], state.customers))
-    writeStorageArray(STORAGE_KEYS.orders, buildPersistedExtras(db.orders || [], state.orders))
-    writeStorageArray(STORAGE_KEYS.routes, buildPersistedExtras(db.deliveryRoutes || [], state.deliveryRoutes))
-    writeStorageArray(
-      STORAGE_KEYS.routeItems,
-      buildPersistedExtras(db.deliveryRouteItems || [], state.deliveryRouteItems),
-    )
-    writeStorageArray(STORAGE_KEYS.addressChangeLogs, state.addressChangeLogs)
-    writeStorageArray(
-      STORAGE_KEYS.activityLogs,
-      buildPersistedExtras(db.activity_logs || db.activityLogs || [], state.activityLogs),
-    )
-    writeStorageArray(STORAGE_KEYS.notifications, state.notifications)
-
-    if (state.currentUser) {
-      localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(state.currentUser))
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.currentUser)
-    }
-  } finally {
-    suppressStorageEvents = Math.max(0, suppressStorageEvents - 1)
-  }
-}
-
-function patchStorageEvents() {
-  const storageProto = Object.getPrototypeOf(window.localStorage)
-  const originalSetItem = storageProto.setItem
-  const originalRemoveItem = storageProto.removeItem
-
-  storageProto.setItem = function patchedSetItem(key, value) {
-    originalSetItem.call(this, key, value)
-    if (suppressStorageEvents > 0) return
-    window.dispatchEvent(new CustomEvent('gracious-storage-updated', { detail: { key } }))
-  }
-
-  storageProto.removeItem = function patchedRemoveItem(key) {
-    originalRemoveItem.call(this, key)
-    if (suppressStorageEvents > 0) return
-    window.dispatchEvent(new CustomEvent('gracious-storage-updated', { detail: { key } }))
-  }
-
-  return () => {
-    storageProto.setItem = originalSetItem
-    storageProto.removeItem = originalRemoveItem
-  }
-}
-
-function readStoredUser() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.currentUser)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
-function readStoredTheme() {
-  try {
-    return localStorage.getItem(STORAGE_KEYS.theme) || 'light'
-  } catch {
-    return 'light'
-  }
-}
-
-function readStorageArray(key) {
-  try {
-    const raw = localStorage.getItem(key)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function writeStorageArray(key, value) {
-  localStorage.setItem(key, JSON.stringify(Array.isArray(value) ? value : []))
-}
-
-function mergeRecords(base, extras) {
-  const map = new Map()
-
-  for (const item of base) {
-    if (item?.id) map.set(item.id, item)
-  }
-
-  for (const item of extras) {
-    if (!item?.id) continue
-    if (item._deleted) {
-      map.delete(item.id)
-      continue
-    }
-    map.set(item.id, { ...(map.get(item.id) || {}), ...item })
-  }
-
-  return Array.from(map.values())
-}
-
-function upsertRecord(items, nextItem) {
-  const index = items.findIndex((item) => item.id === nextItem.id)
-  if (index === -1) return [...items, nextItem]
-  const next = [...items]
-  next[index] = nextItem
-  return next
-}
-
-function removeRecord(items, id) {
-  return items.filter((item) => item.id !== id)
-}
-
-function buildPersistedExtras(base, current) {
-  const baseMap = new Map(base.filter((item) => item?.id).map((item) => [item.id, item]))
-  const currentMap = new Map(current.filter((item) => item?.id).map((item) => [item.id, item]))
-  const extras = []
-
-  for (const item of current) {
-    if (!item?.id) continue
-    const original = baseMap.get(item.id)
-    if (!original) {
-      extras.push(item)
-      continue
-    }
-    if (!isShallowEqualRecord(original, item)) {
-      extras.push(item)
-    }
-  }
-
-  for (const item of base) {
-    if (!item?.id) continue
-    if (!currentMap.has(item.id)) {
-      extras.push({ id: item.id, _deleted: true })
-    }
-  }
-
-  return extras
-}
-
-function isShallowEqualRecord(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right)
-}
-
-function delay(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
 function LoadingOverlay() {
@@ -508,9 +584,41 @@ function LoadingOverlay() {
         <div className="mx-auto grid h-20 w-20 place-items-center rounded-[24px] bg-gradient-to-br from-teal via-teal-dark to-gracious-navy text-3xl text-white shadow-[0_20px_45px_rgba(13,148,136,0.25)]">
           🍱
         </div>
-        <div className="mt-5 text-2xl font-semibold tracking-tight text-gracious-navy dark:text-slate-100">Gracious Delivery</div>
-        <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">Menyiapkan dashboard operasional Anda...</div>
+        <div className="mt-5 text-2xl font-semibold tracking-tight text-gracious-navy dark:text-slate-100">
+          Gracious Delivery
+        </div>
+        <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          Memuat data dari server...
+        </div>
         <div className="mx-auto mt-5 h-10 w-10 animate-spin rounded-full border-4 border-teal/20 border-t-teal" />
+      </div>
+    </div>
+  )
+}
+
+function ErrorScreen({ message, onRetry }) {
+  return (
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-white/95 px-6 backdrop-blur dark:bg-slate-950/95">
+      <div className="max-w-md text-center">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-rose-100 text-rose-600 dark:bg-rose-900/40">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 8.5a15 15 0 0 1 20 0" />
+            <path d="M5 12.5a10 10 0 0 1 14 0" />
+            <path d="M8.5 16.5a5 5 0 0 1 7 0" />
+            <line x1="2" y1="2" x2="22" y2="22" />
+          </svg>
+        </div>
+        <h1 className="mt-5 text-2xl font-semibold tracking-tight text-gracious-navy dark:text-slate-100">
+          Gagal terhubung ke server
+        </h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{message}</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-teal px-5 py-3 font-medium text-white shadow-[0_16px_28px_rgba(13,148,136,0.22)] transition hover:-translate-y-0.5 hover:bg-teal-dark"
+        >
+          🔄 Coba Lagi
+        </button>
       </div>
     </div>
   )
