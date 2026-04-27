@@ -558,6 +558,7 @@ export default function NewOrder() {
                     validationErrors={validationErrors}
                     onEdit={setEditingField}
                     onChange={handlePreviewChange}
+                    programOptions={programOptions}
                   />
                 </div>
 
@@ -1032,7 +1033,7 @@ function SmartCustomerCard({
   )
 }
 
-function SmartOrderCard({ draft, editingField, validationErrors, onEdit, onChange }) {
+function SmartOrderCard({ draft, editingField, validationErrors, onEdit, onChange, programOptions }) {
   return (
     <Card className="rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
       <div className="mb-5 flex items-center justify-between">
@@ -1564,6 +1565,22 @@ function inferEndDate(startDate, durationType) {
   const date = new Date(Date.UTC(year, month - 1, day))
   date.setUTCDate(date.getUTCDate() + days)
   return date.toISOString().slice(0, 10)
+}
+
+function normalizeWhatsappInput(value) {
+  // Keep digits, +, spaces, dashes — strip everything else
+  return String(value || '').replace(/[^\d+\s\-]/g, '').trim()
+}
+
+function durationText(durationType) {
+  return (
+    {
+      weekly_5: 'Weekly 5 Hari',
+      monthly_20: 'Monthly 20 Hari',
+      monthly_36: 'Monthly 36 Hari',
+      monthly_40: 'Monthly 40 Hari',
+    }[durationType] || durationType || ''
+  )
 }
 
 function formatCurrencyInput(value) {
