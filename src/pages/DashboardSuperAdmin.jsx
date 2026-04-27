@@ -13,6 +13,7 @@ import {
   Printer,
   TrendingUp,
   Truck,
+  Upload,
   UserPlus,
   Users,
 } from 'lucide-react'
