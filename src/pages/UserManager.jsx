@@ -79,7 +79,8 @@ export default function UserManager() {
           id: form.id,
           name: form.name.trim(),
           username: form.username.trim().toLowerCase(),
-          password: form.password,
+          // Only include password if admin explicitly typed a new one
+          ...(form.password ? { password: form.password } : {}),
           role: form.role,
           phone: form.phone.trim(),
           isActive: form.isActive,
@@ -520,12 +521,8 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
   function handleSubmit() {
     if (!validate()) return
 
-    const finalForm = {
-      ...form,
-      password: isEdit && !form.password ? user.password : form.password,
-    }
-
-    onSave(finalForm)
+    // Pass form as-is; handleSave will skip password if empty (for edit mode)
+    onSave(form)
   }
 
   const isFormValid = Boolean(
