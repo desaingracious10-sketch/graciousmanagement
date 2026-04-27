@@ -551,6 +551,7 @@ export default function NewOrder() {
                     existingCustomerMatch={existingCustomerMatch}
                     customerChoice={customerChoice}
                     onCustomerChoice={setCustomerChoice}
+                    zoneOptions={zoneOptions}
                   />
                   <SmartOrderCard
                     draft={preview}
@@ -604,6 +605,8 @@ export default function NewOrder() {
             onSubmit={handleSubmit}
             isSubmitting={isSubmitting}
             submitAction={submitAction}
+            zoneOptions={zoneOptions}
+            programOptions={programOptions}
           />
         )}
       </div>
@@ -626,6 +629,8 @@ function ManualMode({
   onSubmit,
   isSubmitting,
   submitAction,
+  zoneOptions,
+  programOptions,
 }) {
   const [customerSearch, setCustomerSearch] = useState('')
 
@@ -924,6 +929,7 @@ function SmartCustomerCard({
   existingCustomerMatch,
   customerChoice,
   onCustomerChoice,
+  zoneOptions,
 }) {
   return (
     <Card className="rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
@@ -1387,11 +1393,11 @@ function FormSection({ icon: Icon, title, subtitle, children }) {
   )
 }
 
-function ManualInput({ dataField, label, value, onChange, error, type = 'text' }) {
+function ManualInput({ dataField, label, value, onChange, error, type = 'text', placeholder }) {
   return (
     <div data-field={dataField}>
       <Field label={label} required={dataField === 'name' || dataField === 'phone' || dataField === 'startDate'}>
-        <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} className={error ? 'border-rose-300 ring-2 ring-rose-100' : ''} />
+        <Input type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} className={error ? 'border-rose-300 ring-2 ring-rose-100' : ''} />
       </Field>
     </div>
   )
