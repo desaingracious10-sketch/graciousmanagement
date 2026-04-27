@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Eye, MoreHorizontal, Pencil, Plus, Search, UserX } from 'lucide-react'
+import { ChevronRight, Eye, MoreHorizontal, Pencil, Plus, Search, Trash2, UserX } from 'lucide-react'
 import AddressEditModal from '../components/customers/AddressEditModal.jsx'
 import { useApp } from '../context/AppContext.jsx'
 import { getStoredUser } from '../hooks/useAuth.js'
@@ -13,7 +13,7 @@ export default function CustomerList() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const currentUser = getStoredUser()
-  const { rawDb, programs, zones, isLoading } = useApp()
+  const { rawDb, programs, zones, isLoading, softDeleteCustomer } = useApp()
   const [customerExtras, setCustomerExtras] = useState(() => readStorageArray(STORAGE_CUSTOMERS_KEY))
   const [addressLogs, setAddressLogs] = useState(() => readStorageArray(STORAGE_ADDRESS_LOG_KEY))
   const [search, setSearch] = useState('')
@@ -99,6 +99,23 @@ export default function CustomerList() {
         saveCustomerPatch({ ...row.customer, isActive: false })
         setToast({ tone: 'success', message: `${row.customer.name} berhasil dinonaktifkan.` })
         setConfirmState(null)
+      },
+    })
+  }
+
+  function handleHardDelete(row) {
+    setConfirmState({
+      title: `Hapus customer ${row.customer.name}?`,
+      description: 'Customer tidak akan tampil di sistem, tapi riwayat pesanan tetap tersimpan. Tidak boleh ada pesanan aktif.',
+      confirmLabel: 'Ya, Hapus',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmState(null)
+        try {
+          await softDeleteCustomer(row.customer.id, `Customer ${row.customer.name} berhasil dihapus.`)
+        } catch (error) {
+          setToast({ tone: 'error', message: error?.message || 'Gagal menghapus customer.' })
+        }
       },
     })
   }
@@ -284,6 +301,9 @@ export default function CustomerList() {
                             <ActionButton icon={Eye} label="Lihat Detail" onClick={() => navigate(`/customers/${row.customer.id}`)} />
                             <ActionButton icon={Pencil} label="Edit Alamat" onClick={() => setEditingCustomer(row.customer)} />
                             <ActionButton icon={UserX} label="Nonaktifkan" danger onClick={() => handleDeactivate(row)} />
+                            {currentUser?.role === 'superadmin' ? (
+                              <ActionButton icon={Trash2} label="Hapus Permanen" danger onClick={() => handleHardDelete(row)} />
+                            ) : null}
                           </div>
                         </details>
                       </td>

@@ -334,7 +334,10 @@ export default function NewOrder() {
     if (Object.keys(errors).length > 0) {
       const firstField = Object.keys(errors)[0]
       document.querySelector(`[data-field="${firstField}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      setToast({ tone: 'error', message: 'Masih ada field wajib yang belum lengkap.' })
+      const message = errors.proof
+        ? 'Foto bukti transfer WAJIB diupload sebelum submit pesanan.'
+        : 'Masih ada field wajib yang belum lengkap.'
+      setToast({ tone: 'error', message })
       return
     }
 
@@ -560,7 +563,7 @@ export default function NewOrder() {
                   />
                 </div>
 
-                <PaymentSection payment={payment} onChange={handlePaymentChange} onAmountChange={handleAmountChange} onProofUpload={handleProofUpload} />
+                <PaymentSection payment={payment} onChange={handlePaymentChange} onAmountChange={handleAmountChange} onProofUpload={handleProofUpload} validationErrors={validationErrors} />
 
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button
@@ -885,7 +888,7 @@ function ManualMode({
           </div>
         </FormSection>
 
-        <PaymentSection payment={payment} onChange={onPaymentChange} onAmountChange={onAmountChange} onProofUpload={onProofUpload} />
+        <PaymentSection payment={payment} onChange={onPaymentChange} onAmountChange={onAmountChange} onProofUpload={onProofUpload} validationErrors={validationErrors} />
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
@@ -1147,7 +1150,7 @@ function SmartOrderCard({ draft, editingField, validationErrors, onEdit, onChang
   )
 }
 
-function PaymentSection({ payment, onChange, onAmountChange, onProofUpload }) {
+function PaymentSection({ payment, onChange, onAmountChange, onProofUpload, validationErrors = {} }) {
   return (
     <Card className="rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
       <div className="mb-5 flex items-center justify-between">
@@ -1177,10 +1180,10 @@ function PaymentSection({ payment, onChange, onAmountChange, onProofUpload }) {
             ))}
           </Select>
         </Field>
-        <div className="md:col-span-2">
+        <div className="md:col-span-2" data-field="proof">
           <label className="block">
-            <div className="mb-2 text-sm font-medium text-slate-700">Upload bukti transfer</div>
-            <div className="flex flex-col gap-4 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+            <div className="mb-2 text-sm font-medium text-slate-700">Upload bukti transfer <span className="text-rose-500">*</span></div>
+            <div className={`flex flex-col gap-4 rounded-2xl border-2 border-dashed px-4 py-5 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left ${validationErrors.proof ? 'border-rose-400 bg-rose-50' : 'border-slate-300 bg-slate-50'}`}>
               <div>
                 <div className="flex items-center justify-center gap-2 text-sm font-medium text-slate-700 sm:justify-start">
                   <Upload size={16} />
@@ -1196,8 +1199,13 @@ function PaymentSection({ payment, onChange, onAmountChange, onProofUpload }) {
             </div>
           </label>
           <div className="mt-2 text-xs text-slate-500">
-            Bukti transfer akan disimpan dan hanya bisa dilihat oleh Admin Utama. Format JPG, PNG, PDF maksimal 5MB.
+            Bukti transfer WAJIB diupload sebelum submit. Hanya bisa dilihat oleh Admin Utama. Format JPG, PNG, PDF maksimal 5MB.
           </div>
+          {validationErrors.proof ? (
+            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+              ⚠️ Foto bukti transfer wajib diupload sebelum submit pesanan.
+            </div>
+          ) : null}
           {payment.proofError ? (
             <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {payment.proofError}
@@ -1464,6 +1472,11 @@ function validateDraft(source, payment, kind) {
 
   if (!payment.amount) errors.paymentAmount = true
   if (kind === 'submit' && !source.endDate && source.durationType) errors.endDate = true
+
+  // Bukti transfer WAJIB saat submit (bukan draft)
+  if (kind === 'submit' && !payment.proofFile && !payment.proofMeta?.path) {
+    errors.proof = true
+  }
 
   return errors
 }

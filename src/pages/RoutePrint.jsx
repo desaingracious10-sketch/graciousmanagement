@@ -8,14 +8,31 @@ import { Button, EmptyState, Field, Input, Select, todayISO } from '../component
 const ALL_ROUTES = 'all'
 const MOVED_STATUS = 'pindah_alamat'
 
+function getMondayOfIso(isoDate) {
+  const d = new Date(`${isoDate}T00:00:00`)
+  const dow = d.getDay()
+  const diff = (dow + 6) % 7
+  d.setDate(d.getDate() - diff)
+  return d.toISOString().slice(0, 10)
+}
+
+function addDaysIso(isoDate, n) {
+  const d = new Date(`${isoDate}T00:00:00`)
+  d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function RoutePrint() {
   const [searchParams] = useSearchParams()
   const { deliveryRoutes, deliveryRouteItems, customers, orders, programs, users, zones } = useApp()
   const initialDate = searchParams.get('date') || todayISO()
   const printOnly = searchParams.get('mode') === 'print'
   const initialRoute = searchParams.get('route') || ALL_ROUTES
+  const isBatchMode = searchParams.get('mode') === 'batch' || !!searchParams.get('weekStart')
+  const initialWeekStart = searchParams.get('weekStart') || getMondayOfIso(initialDate)
   const [selectedDate, setSelectedDate] = useState(initialDate)
   const [selectedRouteId, setSelectedRouteId] = useState(initialRoute)
+  const [batchWeekStart, setBatchWeekStart] = useState(initialWeekStart)
 
   const routesForDate = useMemo(
     () =>
@@ -66,8 +83,46 @@ export default function RoutePrint() {
     [customers, deliveryRouteItems, filteredRoutes, orders, programs, selectedDate, users, zones],
   )
 
-  const totalPoints = routeSheets.reduce((sum, route) => sum + route.pointCount, 0)
-  const totalStops = routeSheets.reduce((sum, route) => sum + route.deliveryCount, 0)
+  // Batch mode: bangun lembar Senin-Jumat dalam 1 dokumen, skip item yang cuti per hari
+  const batchSheets = useMemo(() => {
+    if (!isBatchMode) return []
+    const sheets = []
+    for (let dayIdx = 0; dayIdx < 5; dayIdx += 1) {
+      const dayIso = addDaysIso(batchWeekStart, dayIdx)
+      const dayRoutes = deliveryRoutes
+        .filter((route) =>
+          route.deliveryDate === dayIso ||
+          (route.weekStart && route.weekEnd && route.weekStart <= dayIso && route.weekEnd >= dayIso),
+        )
+        .sort((a, b) => routeLabelToNumber(a.routeLabel) - routeLabelToNumber(b.routeLabel))
+
+      for (const route of dayRoutes) {
+        sheets.push(
+          buildRouteSheet(
+            { ...route, deliveryDate: dayIso },
+            {
+              selectedDate: dayIso,
+              deliveryRouteItems: deliveryRouteItems.filter((item) => {
+                if (item.routeId !== route.id) return false
+                const cutiList = Array.isArray(item.cutiDates) ? item.cutiDates : []
+                return !cutiList.includes(dayIso)
+              }),
+              customers,
+              orders,
+              programs,
+              users,
+              zones,
+            },
+          ),
+        )
+      }
+    }
+    return sheets
+  }, [isBatchMode, batchWeekStart, deliveryRoutes, deliveryRouteItems, customers, orders, programs, users, zones])
+
+  const activeSheets = isBatchMode ? batchSheets : routeSheets
+  const totalPoints = activeSheets.reduce((sum, route) => sum + route.pointCount, 0)
+  const totalStops = activeSheets.reduce((sum, route) => sum + route.deliveryCount, 0)
 
   function runPrint() {
     document.body.classList.add('route-printing')
@@ -84,8 +139,22 @@ export default function RoutePrint() {
   }
 
   function handleOpenPrintPreview() {
+    if (isBatchMode) {
+      window.open(`/routes/print?weekStart=${batchWeekStart}&mode=print`, '_blank', 'noopener,noreferrer')
+      return
+    }
     const routeParam = selectedRouteId === ALL_ROUTES ? '' : `&route=${selectedRouteId}`
     window.open(`/routes/print?date=${selectedDate}&mode=print${routeParam}`, '_blank', 'noopener,noreferrer')
+  }
+
+  function openBatchMode() {
+    const monday = getMondayOfIso(selectedDate)
+    setBatchWeekStart(monday)
+    window.location.search = `?weekStart=${monday}`
+  }
+
+  function exitBatchMode() {
+    window.location.search = `?date=${selectedDate}`
   }
 
   return (
@@ -117,27 +186,59 @@ export default function RoutePrint() {
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-[220px_minmax(280px,1fr)_repeat(2,minmax(0,180px))]">
-            <Field label="Tanggal Pengiriman">
-              <Input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
+            {isBatchMode ? (
+              <Field label="Senin Minggu Batch">
+                <Input type="date" value={batchWeekStart} onChange={(event) => setBatchWeekStart(getMondayOfIso(event.target.value))} />
+              </Field>
+            ) : (
+              <Field label="Tanggal Pengiriman">
+                <Input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
+              </Field>
+            )}
+
+            <Field label={isBatchMode ? 'Mode Print' : 'Rute / Driver'}>
+              {isBatchMode ? (
+                <div className="rounded-lg border border-teal/20 bg-teal/5 px-3 py-2 text-sm text-teal-dark">
+                  📅 Mode Batch: Senin–Jumat dalam 1 dokumen (cuti per hari otomatis di-skip)
+                </div>
+              ) : (
+                <Select value={selectedRouteId} onChange={(event) => setSelectedRouteId(event.target.value)}>
+                  <option value={ALL_ROUTES}>Semua Rute</option>
+                  {routesForDate.map((route) => {
+                    const driver = users.find((user) => user.id === route.driverId)
+                    return (
+                      <option key={route.id} value={route.id}>
+                        {route.routeLabel} - {driver?.name || 'Driver belum ditentukan'}
+                      </option>
+                    )
+                  })}
+                </Select>
+              )}
             </Field>
 
-            <Field label="Rute / Driver">
-              <Select value={selectedRouteId} onChange={(event) => setSelectedRouteId(event.target.value)}>
-                <option value={ALL_ROUTES}>Semua Rute</option>
-                {routesForDate.map((route) => {
-                  const driver = users.find((user) => user.id === route.driverId)
-                  return (
-                    <option key={route.id} value={route.id}>
-                      {route.routeLabel} - {driver?.name || 'Driver belum ditentukan'}
-                    </option>
-                  )
-                })}
-              </Select>
-            </Field>
-
-            <SummaryTile label="Total Rute" value={routeSheets.length} />
+            <SummaryTile label={isBatchMode ? 'Total Lembar' : 'Total Rute'} value={activeSheets.length} />
             <SummaryTile label="Total Point" value={totalPoints} />
             <SummaryTile label="Total Stop" value={`${totalStops}x`} />
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {!isBatchMode ? (
+              <button
+                type="button"
+                onClick={openBatchMode}
+                className="inline-flex items-center gap-2 rounded-2xl border border-teal/30 bg-teal/5 px-4 py-2 text-sm font-medium text-teal-dark transition hover:bg-teal/10"
+              >
+                📅 Switch ke Mode Batch (Senin–Jumat)
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={exitBatchMode}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                ← Kembali ke Mode Per Hari
+              </button>
+            )}
           </div>
 
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
@@ -145,12 +246,12 @@ export default function RoutePrint() {
           </div>
         </section>
 
-        {routeSheets.length ? (
-          <RoutePrintSheet routes={routeSheets} />
+        {activeSheets.length ? (
+          <RoutePrintSheet routes={activeSheets} />
         ) : (
           <EmptyState
             icon="🗺️"
-            title="Belum ada rute hari ini."
+            title={isBatchMode ? 'Belum ada rute di minggu ini.' : 'Belum ada rute hari ini.'}
             description="Pilih tanggal lain atau susun rute terlebih dahulu dari halaman builder."
             actionLabel="Buat rute sekarang →"
             actionTo="/routes/builder"

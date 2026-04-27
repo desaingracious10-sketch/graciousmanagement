@@ -22,6 +22,7 @@ const UserManager = lazy(() => import('./pages/UserManager.jsx'))
 const CustomerPortal = lazy(() => import('./pages/portal/CustomerPortal.jsx'))
 const GeneratePortalLink = lazy(() => import('./pages/sales/GeneratePortalLink.jsx'))
 const MenuManager = lazy(() => import('./pages/sales/MenuManager.jsx'))
+const ActivityLogPage = lazy(() => import('./pages/admin/ActivityLogPage.jsx'))
 
 function useSession() {
   const { currentUser } = useAuth()
@@ -74,6 +75,7 @@ export default function App() {
           <Route element={<RoleGuard roles={['superadmin']} />}>
             <Route path="/dashboard/admin" element={<DashboardSuperAdmin />} />
             <Route path="/users" element={<UserManager />} />
+            <Route path="/activity-logs" element={<ActivityLogPage />} />
           </Route>
 
           <Route element={<RoleGuard roles={['sales']} />}>

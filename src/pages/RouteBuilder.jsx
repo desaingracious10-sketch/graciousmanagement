@@ -25,6 +25,40 @@ const STORAGE_ROUTES_KEY = 'gracious_routes_extra'
 const STORAGE_ROUTE_ITEMS_KEY = 'gracious_route_items_extra'
 const STORAGE_BUILDER_NOTES_KEY = 'gracious_route_builder_notes'
 
+const WEEKDAYS = [
+  { idx: 1, label: 'Sen', full: 'Senin' },
+  { idx: 2, label: 'Sel', full: 'Selasa' },
+  { idx: 3, label: 'Rab', full: 'Rabu' },
+  { idx: 4, label: 'Kam', full: 'Kamis' },
+  { idx: 5, label: 'Jum', full: 'Jumat' },
+]
+
+function getMondayOfWeek(isoDate) {
+  const d = new Date(`${isoDate}T00:00:00`)
+  const dow = d.getDay() // 0=Sun, 1=Mon ... 6=Sat
+  const diff = (dow + 6) % 7 // days since Monday
+  d.setDate(d.getDate() - diff)
+  return d.toISOString().slice(0, 10)
+}
+
+function addIsoDays(isoDate, n) {
+  const d = new Date(`${isoDate}T00:00:00`)
+  d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+function buildBatchInfo(isoDate) {
+  const monday = getMondayOfWeek(isoDate)
+  const friday = addIsoDays(monday, 4)
+  const monthLabel = new Date(`${monday}T00:00:00`).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+  const weekNum = Math.ceil(new Date(`${monday}T00:00:00`).getDate() / 7)
+  return {
+    weekStart: monday,
+    weekEnd: friday,
+    batchLabel: `${monthLabel} Week ${weekNum}`,
+  }
+}
+
 export default function RouteBuilder() {
   const navigate = useNavigate()
   const currentUser = getStoredUser()
@@ -204,6 +238,7 @@ export default function RouteBuilder() {
 
   function createRouteDraft(overrides = {}) {
     const nextIndex = selectedDateRoutes.length + 1
+    const batch = buildBatchInfo(selectedDate)
     return {
       id: `route-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       deliveryDate: selectedDate,
@@ -215,6 +250,10 @@ export default function RouteBuilder() {
       createdBy: currentUser?.id || 'u4',
       createdAt: new Date().toISOString(),
       notes: currentGlobalNote,
+      // Batch fields untuk operasi mingguan
+      batchLabel: batch.batchLabel,
+      weekStart: batch.weekStart,
+      weekEnd: batch.weekEnd,
       ...overrides,
     }
   }
@@ -479,7 +518,14 @@ export default function RouteBuilder() {
             </Button>
             <Button variant="secondary" onClick={() => navigate(`/routes/print?date=${selectedDate}`)} className="gap-2 rounded-2xl px-4 py-3">
               <Printer size={16} />
-              Preview Print
+              Print Hari Ini
+            </Button>
+            <Button
+              onClick={() => navigate(`/routes/print?weekStart=${buildBatchInfo(selectedDate).weekStart}`)}
+              className="gap-2 rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark"
+            >
+              <Printer size={16} />
+              Print Batch (Sen–Jum)
             </Button>
           </div>
         </header>
@@ -745,6 +791,12 @@ export default function RouteBuilder() {
                               />
                             </Field>
                           </div>
+
+                          <CutiToggleRow
+                            cutiDates={item.cutiDates || []}
+                            weekStart={activeRoute.weekStart || buildBatchInfo(selectedDate).weekStart}
+                            onChange={(nextDates) => updateRouteItem(item.id, { cutiDates: nextDates, isCuti: nextDates.length > 0 })}
+                          />
                         </div>
                       )
                     })
@@ -880,6 +932,54 @@ export default function RouteBuilder() {
             </div>
           </Card>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function CutiToggleRow({ cutiDates = [], weekStart, onChange }) {
+  function toggle(idx) {
+    const dateIso = addIsoDays(weekStart, idx - 1)
+    const exists = cutiDates.includes(dateIso)
+    const next = exists ? cutiDates.filter((d) => d !== dateIso) : [...cutiDates, dateIso].sort()
+    onChange(next)
+  }
+  return (
+    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+          Cuti per Hari (centang = TIDAK dikirim)
+        </div>
+        {cutiDates.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-[11px] font-medium text-amber-800 underline hover:text-amber-900"
+          >
+            Reset
+          </button>
+        ) : null}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {WEEKDAYS.map((d) => {
+          const dateIso = addIsoDays(weekStart, d.idx - 1)
+          const isOff = cutiDates.includes(dateIso)
+          return (
+            <button
+              key={d.idx}
+              type="button"
+              onClick={() => toggle(d.idx)}
+              className={`min-h-[36px] rounded-xl border px-3 text-xs font-semibold transition ${
+                isOff
+                  ? 'border-rose-300 bg-rose-100 text-rose-700'
+                  : 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+              }`}
+              title={`${d.full} (${dateIso})${isOff ? ' — CUTI' : ''}`}
+            >
+              {d.label} {isOff ? '✗' : '✓'}
+            </button>
+          )
+        })}
       </div>
     </div>
   )

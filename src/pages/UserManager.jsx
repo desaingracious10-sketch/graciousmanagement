@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, CheckCircle, ChevronRight, ClipboardCopy, HardDrive, KeyRound, Pencil, Plus, UserX } from 'lucide-react'
+import { BarChart3, CheckCircle, ChevronRight, ClipboardCopy, HardDrive, KeyRound, Pencil, Plus, Trash2, UserX } from 'lucide-react'
 import { useApp } from '../context/AppContext.jsx'
+import { getStoredUser } from '../hooks/useAuth.js'
 import { deleteFilesOlderThan, getStorageUsage } from '../lib/imageUpload.js'
 import { Badge, Button, Card, Field, Input, Select, formatDate } from '../components/ui.jsx'
 
 const ROLE_OPTIONS = [
   { value: 'sales', label: 'Admin Sales' },
   { value: 'address_admin', label: 'Admin Alamat' },
-  { value: 'driver', label: 'Driver' },
+  // Driver dikelola di halaman /drivers (tabel drivers terpisah)
 ]
 
 const ROLE_LABEL = {
@@ -23,7 +24,8 @@ const TABS = [
 ]
 
 export default function UserManager() {
-  const { users, orders, deliveryRoutes, addUser, updateUser, deleteUser, showToast } = useApp()
+  const { users, orders, deliveryRoutes, addUser, updateUser, deleteUser, hardDeleteUser, confirmAction, showToast } = useApp()
+  const currentUser = getStoredUser()
   const [activeTab, setActiveTab] = useState('users')
   const [modal, setModal] = useState(null)
   const [successInfo, setSuccessInfo] = useState(null)
@@ -107,6 +109,26 @@ export default function UserManager() {
   async function handleDeactivate(user) {
     await deleteUser(user.id)
     showToast({ tone: 'success', message: `User ${user.name} berhasil dinonaktifkan.` })
+  }
+
+  async function handleHardDelete(user) {
+    if (user.id === currentUser?.id) {
+      showToast({ tone: 'error', message: 'Tidak bisa menghapus akun yang sedang login.' })
+      return
+    }
+    const ok = await confirmAction({
+      title: `Hapus user ${user.name}?`,
+      description: `User akan dihapus PERMANEN dari sistem dan tidak bisa login lagi. Riwayat pesanan/rute yang pernah dibuat user ini tetap tersimpan. Aksi ini tidak bisa dibatalkan.`,
+      confirmLabel: 'Ya, Hapus Permanen',
+      cancelLabel: 'Batal',
+      danger: true,
+    })
+    if (!ok) return
+    try {
+      await hardDeleteUser(user.id, `User ${user.name} berhasil dihapus permanen.`)
+    } catch {
+      // toast sudah ditampilkan oleh withToast
+    }
   }
 
   async function handleDeleteOldFiles() {
@@ -221,12 +243,22 @@ export default function UserManager() {
                             label="Reset Password"
                             onClick={() => setModal({ type: 'password', user })}
                           />
-                          <InlineAction
-                            icon={UserX}
-                            label="Nonaktifkan"
-                            onClick={() => void handleDeactivate(user)}
-                            danger
-                          />
+                          {user.isActive !== false ? (
+                            <InlineAction
+                              icon={UserX}
+                              label="Nonaktifkan"
+                              onClick={() => void handleDeactivate(user)}
+                              danger
+                            />
+                          ) : null}
+                          {currentUser?.role === 'superadmin' && user.id !== currentUser?.id ? (
+                            <InlineAction
+                              icon={Trash2}
+                              label="Hapus"
+                              onClick={() => void handleHardDelete(user)}
+                              danger
+                            />
+                          ) : null}
                         </div>
                       </td>
                     </tr>

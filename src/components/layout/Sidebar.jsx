@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, Home, Link2, Map, MapPinned, Package, PlusCircle, Truck, UserCog, Users, Utensils, X } from 'lucide-react'
+import { BarChart3, ClipboardList, FileText, Home, Link2, Map, MapPinned, Package, PlusCircle, Truck, UserCog, Users, Utensils, X } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 
@@ -20,6 +20,7 @@ const MENU_BY_ROLE = {
     { label: 'Driver', to: '/drivers', icon: Truck },
     { label: 'Zona', to: '/zones', icon: MapPinned },
     { label: 'User Manager', to: '/users', icon: UserCog },
+    { label: 'Log Aktivitas', to: '/activity-logs', icon: FileText },
     { type: 'divider' },
     { label: 'Laporan & Statistik', to: '/dashboard/admin', icon: BarChart3 },
   ],

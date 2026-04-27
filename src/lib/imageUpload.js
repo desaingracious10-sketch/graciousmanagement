@@ -46,16 +46,33 @@ export async function getTransferProofUrl(filePath) {
   return data.signedUrl
 }
 
+function sanitizeForPath(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9-_]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 60) || 'x'
+}
+
 export async function uploadMenuImage(file, weekLabel, dayName) {
   ensureSupabase()
   const compressed = await compressImage(file, 0.3)
-  const filePath = `weekly/${weekLabel}_${dayName}_${Date.now()}.webp`
+  const safeWeek = sanitizeForPath(weekLabel)
+  const safeDay = sanitizeForPath(dayName)
+  const filePath = `weekly/${safeWeek}_${safeDay}_${Date.now()}.webp`
 
   const { error } = await supabase.storage
     .from('menu-images')
-    .upload(filePath, compressed, { contentType: 'image/webp', upsert: true })
+    .upload(filePath, compressed, { contentType: 'image/webp', upsert: true, cacheControl: '3600' })
 
-  if (error) throw error
+  if (error) {
+    if (error.message?.includes('Bucket not found')) {
+      throw new Error(
+        'Storage bucket "menu-images" belum dibuat di Supabase. Buka Supabase → Storage → New bucket → Name: menu-images → Public: YES.',
+      )
+    }
+    throw error
+  }
 
   const { data: urlData } = supabase.storage.from('menu-images').getPublicUrl(filePath)
   return { path: filePath, publicUrl: urlData.publicUrl }

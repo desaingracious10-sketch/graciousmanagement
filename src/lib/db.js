@@ -47,22 +47,40 @@ function ensureClient() {
 export async function loginUser(username, password) {
   ensureClient()
   const normalized = String(username).trim().toLowerCase()
-  const { data, error } = await supabase
+
+  // 1. Cek di tabel users (admin utama, sales, address admin)
+  const { data: userData, error: userErr } = await supabase
     .from('users')
     .select('id, name, username, role, phone, is_active, password')
     .eq('username', normalized)
     .eq('is_active', true)
     .maybeSingle()
 
-  if (error) {
+  if (userErr) {
     return { ok: false, error: 'Tidak bisa terhubung ke server.' }
   }
-  if (!data || data.password !== password) {
-    return { ok: false, error: 'Username atau password salah. Silakan coba lagi.' }
+  if (userData && userData.password === password) {
+    const { password: _pw, ...rest } = userData
+    return { ok: true, user: fromDb(rest) }
   }
-  // Strip password before returning
-  const { password: _pw, ...rest } = data
-  return { ok: true, user: fromDb(rest) }
+
+  // 2. Kalau bukan user, cek di tabel drivers
+  const { data: driverData, error: driverErr } = await supabase
+    .from('drivers')
+    .select('id, name, username, phone, primary_zone_id, is_active, password')
+    .eq('username', normalized)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (driverErr) {
+    return { ok: false, error: 'Tidak bisa terhubung ke server.' }
+  }
+  if (driverData && driverData.password === password) {
+    const { password: _pw, ...rest } = driverData
+    return { ok: true, user: { ...fromDb(rest), role: 'driver' } }
+  }
+
+  return { ok: false, error: 'Username atau password salah. Silakan coba lagi.' }
 }
 
 // ============ USERS ============
@@ -99,6 +117,28 @@ export async function updateUser(id, updates) {
 
 export async function deactivateUser(id) {
   return updateUser(id, { isActive: false })
+}
+
+export async function hardDeleteUser(userId, currentUserId) {
+  ensureClient()
+  if (userId === currentUserId) {
+    throw new Error('Tidak bisa menghapus akun yang sedang aktif digunakan.')
+  }
+  const { count: orderCount } = await supabase
+    .from('orders')
+    .select('*', { count: 'exact', head: true })
+    .eq('created_by', userId)
+    .eq('status', 'active')
+
+  if (orderCount && orderCount > 0) {
+    throw new Error(
+      `User ini masih memiliki ${orderCount} pesanan aktif. Nonaktifkan dulu, jangan dihapus.`,
+    )
+  }
+
+  const { error } = await supabase.from('users').delete().eq('id', userId)
+  if (error) throw error
+  await addActivityLog(currentUserId, 'DELETE_USER', 'user', userId, {})
 }
 
 // ============ ZONES ============
@@ -142,10 +182,36 @@ export async function getCustomers() {
   const { data, error } = await supabase
     .from('customers')
     .select('*')
-    .eq('is_active', true)
+    .or('is_deleted.is.null,is_deleted.eq.false')
     .order('created_at', { ascending: false })
   if (error) throw error
   return fromDb(data || [])
+}
+
+export async function softDeleteCustomer(customerId, currentUserId) {
+  ensureClient()
+  const { count } = await supabase
+    .from('orders')
+    .select('*', { count: 'exact', head: true })
+    .eq('customer_id', customerId)
+    .eq('status', 'active')
+
+  if (count && count > 0) {
+    throw new Error(
+      'Customer ini masih punya pesanan aktif. Selesaikan pesanannya dulu sebelum dihapus.',
+    )
+  }
+
+  const { error } = await supabase
+    .from('customers')
+    .update({
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      is_active: false,
+    })
+    .eq('id', customerId)
+  if (error) throw error
+  await addActivityLog(currentUserId, 'DELETE_CUSTOMER', 'customer', customerId, {})
 }
 
 export async function createCustomer(customerData) {
@@ -254,12 +320,51 @@ async function generateOrderNumber() {
 
 export async function createOrder(orderData) {
   ensureClient()
+  // CEK DUPLIKASI: customer dengan order aktif yang belum berakhir
+  if (orderData.customerId) {
+    const today = new Date().toISOString().slice(0, 10)
+    const { data: existing } = await supabase
+      .from('orders')
+      .select('id, order_number, end_date')
+      .eq('customer_id', orderData.customerId)
+      .eq('status', 'active')
+      .gte('end_date', today)
+      .neq('payment_status', 'rejected')
+
+    if (existing && existing.length > 0) {
+      const existingNo = existing[0].order_number || existing[0].id
+      throw new Error(
+        `Customer ini masih memiliki pesanan aktif (${existingNo}). Tunggu pesanan lama selesai sebelum membuat pesanan perpanjangan baru.`,
+      )
+    }
+  }
+
   const payload = toDb(orderData)
   if (!payload.order_number) {
     payload.order_number = await generateOrderNumber()
   }
   const { data, error } = await supabase.from('orders').insert(payload).select().single()
   if (error) throw error
+
+  // Notifikasi: superadmin perlu verifikasi pesanan baru
+  await supabase.from('notifications').insert({
+    role: 'superadmin',
+    type: 'urgent',
+    category: 'order',
+    title: 'Pesanan Baru Menunggu Verifikasi',
+    message: `${orderData.customerName || 'Customer'} — ${data.order_number} perlu diverifikasi`,
+    link: `/orders/${data.id}`,
+    link_label: 'Lihat & Verifikasi',
+    entity_ids: [data.id],
+    is_read: false,
+  })
+
+  if (orderData.createdBy) {
+    await addActivityLog(orderData.createdBy, 'CREATE_ORDER', 'order', data.id, {
+      orderNumber: data.order_number,
+      customer: orderData.customerName,
+    })
+  }
   return fromDb(data)
 }
 
@@ -281,17 +386,89 @@ export async function deleteOrder(id) {
   if (error) throw error
 }
 
-export async function verifyOrder(id, verifiedBy) {
-  return updateOrder(id, {
-    paymentStatus: 'verified',
-    status: 'active',
-    verifiedBy,
-    verifiedAt: new Date().toISOString(),
+export async function verifyOrder(id, verifiedBy, verifierName) {
+  ensureClient()
+  const { data, error } = await supabase
+    .from('orders')
+    .update({
+      payment_status: 'verified',
+      status: 'active',
+      verified_by: verifiedBy,
+      verified_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select(`
+      *,
+      customer:customers(id, name, phone, address_primary, zone_id),
+      program:programs(id, name)
+    `)
+    .single()
+  if (error) throw error
+
+  // Notifikasi ke address_admin
+  await supabase.from('notifications').insert({
+    role: 'address_admin',
+    type: 'info',
+    category: 'order',
+    title: 'Customer Baru Siap Di-assign ke Rute',
+    message: `${data.customer?.name || 'Customer'} (${data.program?.name || ''}) sudah verified, siap masuk batch berikutnya`,
+    link: '/routes/builder',
+    link_label: 'Atur Rute',
+    entity_ids: [id],
+    is_read: false,
   })
+
+  // Notifikasi ke sales yang input
+  if (data.created_by) {
+    await supabase.from('notifications').insert({
+      user_id: data.created_by,
+      type: 'success',
+      category: 'order',
+      title: 'Pesanan Disetujui!',
+      message: `${data.order_number} sudah diverifikasi oleh ${verifierName || 'Admin'}. Pesanan aktif.`,
+      link: `/orders/${id}`,
+      link_label: 'Lihat Detail',
+      entity_ids: [id],
+      is_read: false,
+    })
+  }
+
+  await addActivityLog(verifiedBy, 'VERIFY_ORDER', 'order', id, {
+    orderNumber: data.order_number,
+    customer: data.customer?.name,
+  })
+  return fromDb(data)
 }
 
-export async function rejectOrder(id, reason) {
-  return updateOrder(id, { paymentStatus: 'rejected', rejectionReason: reason })
+export async function rejectOrder(id, rejectedBy, reason) {
+  ensureClient()
+  const { data, error } = await supabase
+    .from('orders')
+    .update({
+      payment_status: 'rejected',
+      rejection_reason: reason,
+    })
+    .eq('id', id)
+    .select('*')
+    .single()
+  if (error) throw error
+
+  if (data.created_by) {
+    await supabase.from('notifications').insert({
+      user_id: data.created_by,
+      type: 'urgent',
+      category: 'order',
+      title: 'Pesanan Ditolak',
+      message: `${data.order_number} ditolak. Alasan: ${reason}. Upload ulang bukti transfer yang benar.`,
+      link: `/orders/${id}`,
+      link_label: 'Upload Ulang',
+      entity_ids: [id],
+      is_read: false,
+    })
+  }
+
+  await addActivityLog(rejectedBy, 'REJECT_ORDER', 'order', id, { reason })
+  return fromDb(data)
 }
 
 // ============ DELIVERY ROUTES ============
@@ -451,13 +628,32 @@ export async function getActivityLogs(limit = 30) {
 
 export async function addActivityLog(userId, action, entityType, entityId, details) {
   if (!SUPABASE_CONFIGURED || !supabase) return
-  await supabase.from('activity_logs').insert({
-    user_id: userId,
-    action,
-    entity_type: entityType,
-    entity_id: entityId,
-    details,
-  })
+  let userName = null
+  let userRole = null
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('gracious_user') : null
+    if (raw) {
+      const u = JSON.parse(raw)
+      userName = u?.name || null
+      userRole = u?.role || null
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    await supabase.from('activity_logs').insert({
+      user_id: userId,
+      user_name: userName,
+      user_role: userRole,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      details,
+    })
+  } catch (error) {
+    // Activity log tidak boleh crash app
+    console.error('[Gracious] activity log failed:', error)
+  }
 }
 
 // ============ WEEKLY MENUS ============
@@ -471,11 +667,32 @@ export async function getWeeklyMenus() {
   return fromDb(data || [])
 }
 
-export async function createWeeklyMenu(menuData) {
+function stripManagedTimestamps(obj) {
+  // updated_at di-handle oleh trigger Postgres; jangan kirim dari client
+  if (!obj || typeof obj !== 'object') return obj
+  const { updatedAt, updated_at, ...rest } = obj
+  return rest
+}
+
+export async function findWeeklyMenuByLabel(weekLabel, variant) {
   ensureClient()
+  if (!weekLabel) return null
   const { data, error } = await supabase
     .from('weekly_menus')
-    .insert(toDb(menuData))
+    .select('id, week_label, variant')
+    .eq('week_label', weekLabel)
+    .eq('variant', variant || 'healthy_catering')
+    .maybeSingle()
+  if (error) return null
+  return data ? fromDb(data) : null
+}
+
+export async function createWeeklyMenu(menuData) {
+  ensureClient()
+  const cleaned = stripManagedTimestamps(menuData)
+  const { data, error } = await supabase
+    .from('weekly_menus')
+    .insert(toDb(cleaned))
     .select()
     .single()
   if (error) throw error
@@ -484,14 +701,61 @@ export async function createWeeklyMenu(menuData) {
 
 export async function updateWeeklyMenu(id, updates) {
   ensureClient()
+  const cleaned = stripManagedTimestamps(updates)
   const { data, error } = await supabase
     .from('weekly_menus')
-    .update(toDb(updates))
+    .update(toDb(cleaned))
     .eq('id', id)
     .select()
     .single()
   if (error) throw error
   return fromDb(data)
+}
+
+// ============ DRIVERS ============
+export async function getDrivers() {
+  ensureClient()
+  const { data, error } = await supabase
+    .from('drivers')
+    .select('*')
+    .order('name')
+  if (error) throw error
+  return fromDb(data || [])
+}
+
+export async function createDriver(driverData, currentUserId) {
+  ensureClient()
+  const payload = toDb(stripManagedTimestamps(driverData))
+  if (currentUserId) payload.created_by = currentUserId
+  const { data, error } = await supabase.from('drivers').insert(payload).select().single()
+  if (error) throw error
+  await addActivityLog(currentUserId, 'CREATE_DRIVER', 'driver', data.id, { name: data.name })
+  return fromDb(data)
+}
+
+export async function updateDriver(id, updates, currentUserId) {
+  ensureClient()
+  const cleaned = stripManagedTimestamps(updates)
+  const { data, error } = await supabase
+    .from('drivers')
+    .update(toDb(cleaned))
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  await addActivityLog(currentUserId, 'UPDATE_DRIVER', 'driver', id, {})
+  return fromDb(data)
+}
+
+export async function deleteDriver(id, currentUserId) {
+  ensureClient()
+  // Soft delete: nonaktifkan saja, supaya FK delivery_routes tidak rusak
+  const { error } = await supabase
+    .from('drivers')
+    .update({ is_active: false })
+    .eq('id', id)
+  if (error) throw error
+  await addActivityLog(currentUserId, 'DELETE_DRIVER', 'driver', id, {})
 }
 
 // ============ REALTIME ============

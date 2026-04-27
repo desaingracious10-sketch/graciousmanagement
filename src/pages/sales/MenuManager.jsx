@@ -287,7 +287,6 @@ export default function MenuManager() {
         lunch: mealToPayload(d.lunch),
         dinner: d.dinner ? mealToPayload(d.dinner) : null,
       })),
-      updatedAt: new Date().toISOString(),
     }
   }
 
@@ -308,6 +307,35 @@ export default function MenuManager() {
     setIsSaving(true)
     try {
       const payload = buildPayload(publish ? true : form.isActive)
+
+      // Cek duplikasi label minggu (hanya saat create) — variant + week_label
+      if (!form.id) {
+        const duplicate = consolidated.find(
+          (m) =>
+            (m.weekLabel || '').trim().toLowerCase() === payload.weekLabel.toLowerCase() &&
+            (m.variant || 'healthy_catering') === payload.variant,
+        )
+        if (duplicate) {
+          const ok = await confirmAction({
+            title: 'Menu minggu ini sudah ada',
+            description: `"${payload.weekLabel}" untuk varian ${VARIANT_LABEL[payload.variant]} sudah ada. Yakin ingin overwrite menu yang lama?`,
+            confirmLabel: 'Ya, Overwrite',
+            danger: true,
+          })
+          if (!ok) {
+            setIsSaving(false)
+            return
+          }
+          await updateWeeklyMenu(
+            { id: duplicate.id, ...payload },
+            publish ? 'Menu mingguan di-overwrite & dipublish.' : 'Menu mingguan di-overwrite.',
+          )
+          setForm((c) => ({ ...c, id: duplicate.id, isActive: payload.isActive }))
+          if (publish) setView('preview')
+          return
+        }
+      }
+
       if (form.id) {
         await updateWeeklyMenu({ id: form.id, ...payload }, publish ? 'Menu mingguan dipublish.' : 'Menu mingguan disimpan.')
       } else {

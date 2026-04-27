@@ -23,6 +23,7 @@ const AppContext = createContext(null)
 
 const initialState = {
   users: [],
+  drivers: [],
   zones: [],
   programs: [],
   customers: [],
@@ -137,6 +138,7 @@ export function AppProvider({ children }) {
     try {
       const [
         users,
+        drivers,
         zones,
         programs,
         customers,
@@ -148,6 +150,7 @@ export function AppProvider({ children }) {
         weeklyMenus,
       ] = await Promise.all([
         db.getUsers(),
+        db.getDrivers().catch(() => []),
         db.getZones(),
         db.getPrograms(),
         db.getCustomers(),
@@ -163,6 +166,7 @@ export function AppProvider({ children }) {
         type: 'HYDRATE',
         payload: {
           users,
+          drivers,
           zones,
           programs,
           customers,
@@ -222,6 +226,8 @@ export function AppProvider({ children }) {
       db.subscribeToTable('users', queueRefresh),
       db.subscribeToTable('zones', queueRefresh),
       db.subscribeToTable('weekly_menus', queueRefresh),
+      db.subscribeToTable('drivers', queueRefresh),
+      db.subscribeToTable('activity_logs', queueRefresh),
       db.subscribeToTable('notifications', () => {
         queueRefresh()
         if (!state.currentUser) return
@@ -354,9 +360,24 @@ export function AppProvider({ children }) {
     const verifyOrder = (payload, toast = 'Pesanan berhasil diverifikasi.') =>
       withToast(
         async () => {
-          // payload may be { id, paymentStatus, ... } from existing pages
-          const { id, ...rest } = payload
-          const updated = await db.updateOrder(id, rest)
+          // Support both legacy shape ({ id, paymentStatus, ... }) and new ({ id })
+          const id = typeof payload === 'string' ? payload : payload.id
+          const updated = await db.verifyOrder(
+            id,
+            state.currentUser?.id,
+            state.currentUser?.name,
+          )
+          dispatch({ type: 'UPSERT', payload: { key: 'orders', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    const rejectOrder = (payload, toast = 'Pesanan ditolak.') =>
+      withToast(
+        async () => {
+          const { id, reason } = typeof payload === 'string' ? { id: payload, reason: '' } : payload
+          const updated = await db.rejectOrder(id, state.currentUser?.id, reason || '')
           dispatch({ type: 'UPSERT', payload: { key: 'orders', item: updated } })
           return updated
         },
@@ -515,6 +536,55 @@ export function AppProvider({ children }) {
         { successToast: toast },
       )
 
+    const hardDeleteUser = (userId, toast = 'User berhasil dihapus permanen.') =>
+      withToast(
+        async () => {
+          await db.hardDeleteUser(userId, state.currentUser?.id)
+          dispatch({ type: 'REMOVE', payload: { key: 'users', id: userId } })
+        },
+        { successToast: toast },
+      )
+
+    const softDeleteCustomer = (customerId, toast = 'Customer berhasil dihapus.') =>
+      withToast(
+        async () => {
+          await db.softDeleteCustomer(customerId, state.currentUser?.id)
+          dispatch({ type: 'REMOVE', payload: { key: 'customers', id: customerId } })
+        },
+        { successToast: toast },
+      )
+
+    // ===== DRIVERS =====
+    const addDriver = (driver, toast = 'Driver berhasil ditambahkan.') =>
+      withToast(
+        async () => {
+          const created = await db.createDriver(driver, state.currentUser?.id)
+          dispatch({ type: 'PREPEND', payload: { key: 'drivers', item: created } })
+          return created
+        },
+        { successToast: toast },
+      )
+
+    const updateDriver = (driver, toast = 'Driver berhasil diperbarui.') =>
+      withToast(
+        async () => {
+          const { id, ...rest } = driver
+          const updated = await db.updateDriver(id, rest, state.currentUser?.id)
+          dispatch({ type: 'UPSERT', payload: { key: 'drivers', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    const deleteDriver = (driverId, toast = 'Driver berhasil dinonaktifkan.') =>
+      withToast(
+        async () => {
+          await db.deleteDriver(driverId, state.currentUser?.id)
+          dispatch({ type: 'PATCH_ITEM', payload: { key: 'drivers', id: driverId, patch: { isActive: false } } })
+        },
+        { successToast: toast },
+      )
+
     // ===== ZONES =====
     const addZone = (zone, toast = 'Zona berhasil ditambahkan.') =>
       withToast(
@@ -608,8 +678,10 @@ export function AppProvider({ children }) {
       updateOrder,
       deleteOrder,
       verifyOrder,
+      rejectOrder,
       addCustomer,
       updateCustomer,
+      softDeleteCustomer,
       updateAddress,
       regeneratePortalToken,
       addRoute,
@@ -620,6 +692,10 @@ export function AppProvider({ children }) {
       addUser,
       updateUser,
       deleteUser,
+      hardDeleteUser,
+      addDriver,
+      updateDriver,
+      deleteDriver,
       addZone,
       updateZone,
       addActivityLog,
