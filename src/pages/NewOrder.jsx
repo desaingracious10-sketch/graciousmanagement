@@ -17,14 +17,15 @@ import {
   WandSparkles,
   X,
 } from 'lucide-react'
-import db from '../data/db.json'
 import { useApp } from '../context/AppContext.jsx'
 import { getStoredUser } from '../hooks/useAuth.js'
+import { FALLBACK_PROGRAMS, FALLBACK_ZONES } from '../lib/fallbackCatalog.js'
+import { getTransferProofUrl, uploadTransferProof } from '../lib/imageUpload.js'
 import { parseOrderText } from '../utils/smartParser.js'
 import { Badge, Card, Field, Input, Select, Textarea, formatDate, formatIDR, todayISO } from '../components/ui.jsx'
 
-const PROGRAM_OPTIONS = db.programs
-const ZONE_OPTIONS = db.zones
+const PROGRAM_OPTIONS = FALLBACK_PROGRAMS
+const ZONE_OPTIONS = FALLBACK_ZONES
 const PAYMENT_METHOD_OPTIONS = [
   { value: 'Transfer BCA', label: 'Transfer BCA' },
   { value: 'Transfer BRI', label: 'Transfer BRI' },
@@ -75,6 +76,7 @@ function createPaymentState() {
     amount: '',
     method: 'Transfer BCA',
     source: 'Manual WA',
+    proofFile: null,
     proofName: '',
     proofPreview: '',
     proofMeta: null,
@@ -146,7 +148,9 @@ export default function NewOrder() {
   const [payment, setPayment] = useState(createPaymentState)
   const [manualForm, setManualForm] = useState(createManualForm)
   const [customerChoice, setCustomerChoice] = useState('new')
-  const { customers: appCustomers, orders: appOrders, addCustomer, addOrder, addSystemNotification } = useApp()
+  const { customers: appCustomers, orders: appOrders, programs: appPrograms, zones: appZones, addCustomer, addOrder, addSystemNotification } = useApp()
+  const programOptions = appPrograms.length ? appPrograms : PROGRAM_OPTIONS
+  const zoneOptions = appZones.length ? appZones : ZONE_OPTIONS
 
   const currentUser = getStoredUser()
   const allCustomers = useMemo(() => appCustomers, [appCustomers])
@@ -171,6 +175,19 @@ export default function NewOrder() {
   }, [toast])
 
   useEffect(() => {
+    try {
+      const pending = sessionStorage.getItem('gracious_pending_smart_paste')
+      if (pending) {
+        sessionStorage.removeItem('gracious_pending_smart_paste')
+        setMode('smart')
+        setRawText(pending)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
     if (!selectedManualCustomer || manualForm.customerMode !== 'existing') return
     setManualForm((current) => ({
       ...current,
@@ -193,7 +210,7 @@ export default function NewOrder() {
     setValidationErrors({})
     await wait(800)
 
-    const parsed = parseOrderText(rawText)
+    const parsed = parseOrderText(rawText, { programs: programOptions, zones: zoneOptions })
     setPreview(parsed)
     setHasParsed(true)
     setEditingField(null)
@@ -227,7 +244,7 @@ export default function NewOrder() {
           field === 'mealType' ? value : next.mealType,
           field === 'durationType' ? value : next.durationType,
         )
-        const program = PROGRAM_OPTIONS.find((item) => item.id === (field === 'programId' ? value : next.programId))
+        const program = programOptions.find((item) => item.id === (field === 'programId' ? value : next.programId))
         next.programName = program?.name || ''
         next.mealTypeLabel = next.mealType ? mealTypeLabel(next.mealType) : ''
         next.durationLabel = next.durationType ? durationLabel(next.durationType) : ''
@@ -284,6 +301,7 @@ export default function NewOrder() {
     reader.onload = () => {
       setPayment((current) => ({
         ...current,
+        proofFile: file,
         proofName: file.name,
         proofPreview: file.type === 'application/pdf' ? '' : typeof reader.result === 'string' ? reader.result : '',
         proofMeta: { name: file.name, size: file.size, type: file.type },
@@ -294,6 +312,7 @@ export default function NewOrder() {
     if (file.type === 'application/pdf') {
       setPayment((current) => ({
         ...current,
+        proofFile: file,
         proofName: file.name,
         proofPreview: '',
         proofMeta: { name: file.name, size: file.size, type: file.type },
@@ -346,55 +365,77 @@ export default function NewOrder() {
 
     const orderId = `o${Date.now()}`
     const orderNumber = generateOrderNumber(allOrders.length + 1)
-    const newOrder = {
-      id: orderId,
-      orderNumber,
-      customerId: customer.id,
-      programId: source.programId,
-      mealType: source.mealType,
-      durationType: source.durationType,
-      startDate: source.startDate,
-      endDate: source.endDate,
-      dietaryNotes: source.dietaryNotes || '',
-      specialNotes: source.specialNotes || '',
-      status: 'draft',
-      paymentStatus: 'pending',
-      paymentAmount: Number(payment.amount || 0),
-      paymentMethod: normalizePaymentMethod(payment.method),
-      orderSource: normalizeOrderSource(payment.source),
-      createdAt: new Date().toISOString(),
-      createdBy: currentUser?.id || 'u2',
-      paymentProof: payment.proofMeta,
-      priceNormal: source.priceNormal,
-      pricePromo: source.pricePromo,
-      zoneId: source.suggestedZoneId || customer.zoneId || null,
-      adminNotification: `${allOrders.length + 1} pesanan menunggu verifikasi`,
-      routeAssignmentStatus: 'pending_assign',
+
+    try {
+      let uploadedProof = payment.proofMeta
+      if (payment.proofFile) {
+        const storedProof = await uploadTransferProof(payment.proofFile, orderId)
+        const previewUrl = await getTransferProofUrl(storedProof.path)
+        uploadedProof = {
+          name: payment.proofFile.name,
+          type: payment.proofFile.type,
+          size: payment.proofFile.size,
+          bucket: storedProof.bucket,
+          path: storedProof.path,
+          preview: previewUrl,
+          uploadedAt: new Date().toISOString(),
+        }
+      }
+
+      const newOrder = {
+        id: orderId,
+        orderNumber,
+        customerId: customer.id,
+        programId: source.programId,
+        mealType: source.mealType,
+        durationType: source.durationType,
+        startDate: source.startDate,
+        endDate: source.endDate,
+        dietaryNotes: source.dietaryNotes || '',
+        specialNotes: source.specialNotes || '',
+        status: 'draft',
+        paymentStatus: 'pending',
+        paymentAmount: Number(payment.amount || 0),
+        paymentMethod: normalizePaymentMethod(payment.method),
+        orderSource: normalizeOrderSource(payment.source),
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser?.id || 'u2',
+        paymentProof: uploadedProof,
+        priceNormal: source.priceNormal,
+        pricePromo: source.pricePromo,
+        zoneId: source.suggestedZoneId || customer.zoneId || null,
+        adminNotification: `${allOrders.length + 1} pesanan menunggu verifikasi`,
+        routeAssignmentStatus: 'pending_assign',
+      }
+
+      await addOrder(newOrder, null)
+      addSystemNotification({
+        id: `notif-${Date.now()}`,
+        type: 'pending_order_verification',
+        message: `${allOrders.length + 1} pesanan menunggu verifikasi`,
+        orderId: newOrder.id,
+        customerId: newOrder.customerId,
+        createdAt: new Date().toISOString(),
+        scope: 'orders',
+        tone: 'warning',
+        isCritical: true,
+      })
+
+      setIsSubmitting(false)
+      setToast({ tone: 'success', message: `Pesanan ${source.name} berhasil disimpan!` })
+
+      navigate(`/orders/${orderId}`, {
+        replace: true,
+        state: {
+          order: newOrder,
+          customer,
+        },
+      })
+    } catch (error) {
+      console.error('[Gracious] submit order failed:', error)
+      setIsSubmitting(false)
+      setToast({ tone: 'error', message: error?.message || 'Pesanan gagal disimpan. Coba lagi.' })
     }
-
-    await addOrder(newOrder, null)
-    addSystemNotification({
-      id: `notif-${Date.now()}`,
-      type: 'pending_order_verification',
-      message: `${allOrders.length + 1} pesanan menunggu verifikasi`,
-      orderId: newOrder.id,
-      customerId: newOrder.customerId,
-      createdAt: new Date().toISOString(),
-      scope: 'orders',
-      tone: 'warning',
-      isCritical: true,
-    })
-
-    setIsSubmitting(false)
-    setToast({ tone: 'success', message: `Pesanan ${source.name} berhasil disimpan!` })
-
-    navigate(`/orders/${orderId}`, {
-      replace: true,
-      state: {
-        order: newOrder,
-        customer,
-      },
-    })
   }
 
   const confidenceTone = preview.parseConfidence >= 0.8 ? 'success' : preview.parseConfidence >= 0.5 ? 'warning' : 'error'
@@ -710,7 +751,7 @@ function ManualMode({
                     <div><span className="font-medium text-slate-800">Alamat:</span> {selectedExistingCustomer.addressPrimary}</div>
                     <div>
                       <span className="font-medium text-slate-800">Zona:</span>{' '}
-                      {ZONE_OPTIONS.find((zoneOption) => zoneOption.id === selectedExistingCustomer.zoneId)?.name ||
+                      {zoneOptions.find((zoneOption) => zoneOption.id === selectedExistingCustomer.zoneId)?.name ||
                         selectedExistingCustomer.zoneId ||
                         'Belum dipilih'}
                     </div>
@@ -759,7 +800,7 @@ function ManualMode({
                 <Field label="Zona">
                   <Select value={form.zoneId} onChange={(event) => patch('zoneId', event.target.value)}>
                     <option value="">Pilih zona</option>
-                    {ZONE_OPTIONS.map((zoneOption) => (
+                    {zoneOptions.map((zoneOption) => (
                       <option key={zoneOption.id} value={zoneOption.id}>
                         {zoneOption.name}
                       </option>
@@ -777,7 +818,7 @@ function ManualMode({
               <Field label="Program" required>
                 <Select value={form.programId} onChange={(event) => patch('programId', event.target.value)}>
                   <option value="">Pilih program</option>
-                  {PROGRAM_OPTIONS.map((program) => (
+                  {programOptions.map((program) => (
                     <option key={program.id} value={program.id}>
                       {program.name}
                     </option>
@@ -904,7 +945,7 @@ function SmartCustomerCard({
           </div>
           <Select value={draft.suggestedZoneId || ''} onChange={(event) => onChange('suggestedZoneId', event.target.value)}>
             <option value="">Pilih atau koreksi zona</option>
-            {ZONE_OPTIONS.map((zone) => (
+            {zoneOptions.map((zone) => (
               <option key={zone.id} value={zone.id}>
                 {zone.name}
               </option>
@@ -1011,7 +1052,7 @@ function SmartOrderCard({ draft, editingField, validationErrors, onEdit, onChang
           error={validationErrors.programId}
           type="select"
           selectValue={draft.programId}
-          options={PROGRAM_OPTIONS.map((program) => ({ value: program.id, label: program.name }))}
+          options={programOptions.map((program) => ({ value: program.id, label: program.name }))}
           onEdit={onEdit}
           onChange={onChange}
         />
@@ -1421,29 +1462,6 @@ function validateDraft(source, payment, kind) {
   if (kind === 'submit' && !source.endDate && source.durationType) errors.endDate = true
 
   return errors
-}
-
-function readStorageArray(key) {
-  try {
-    const raw = localStorage.getItem(key)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function saveNotifications(count, order) {
-  const notifications = readStorageArray(STORAGE_NOTIFICATIONS_KEY)
-  notifications.unshift({
-    id: `notif-${Date.now()}`,
-    message: `${count} pesanan menunggu verifikasi`,
-    orderId: order.id,
-    customerId: order.customerId,
-    createdAt: new Date().toISOString(),
-    type: 'pending_order_verification',
-  })
-  localStorage.setItem(STORAGE_NOTIFICATIONS_KEY, JSON.stringify(notifications.slice(0, 20)))
 }
 
 function generateOrderNumber(sequence) {

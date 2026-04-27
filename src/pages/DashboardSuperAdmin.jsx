@@ -5,6 +5,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock3,
+  ImagePlus,
   Map,
   MapPin,
   Package,
@@ -17,7 +18,8 @@ import {
 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useApp } from '../context/AppContext.jsx'
-import { Badge, Button, Card, Table, formatDate, formatDateTime, formatIDR } from '../components/ui.jsx'
+import { uploadMenuImage } from '../lib/imageUpload.js'
+import { Badge, Button, Card, Field, Input, Table, formatDate, formatDateTime, formatIDR } from '../components/ui.jsx'
 
 export default function DashboardSuperAdmin() {
   const {
@@ -28,6 +30,10 @@ export default function DashboardSuperAdmin() {
     deliveryRouteItems,
     programs,
     activityLogs,
+    weeklyMenus,
+    addWeeklyMenu,
+    updateWeeklyMenu,
+    showToast,
   } = useApp()
   const [verificationModal, setVerificationModal] = useState(null)
 
@@ -223,6 +229,13 @@ export default function DashboardSuperAdmin() {
             </div>
           </Card>
         </section>
+
+        <WeeklyMenuSection
+          weeklyMenus={weeklyMenus}
+          addWeeklyMenu={addWeeklyMenu}
+          updateWeeklyMenu={updateWeeklyMenu}
+          showToast={showToast}
+        />
 
         <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <Card className="rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
@@ -464,6 +477,138 @@ function VerificationModal({ row, onClose }) {
   )
 }
 
+function WeeklyMenuSection({ weeklyMenus, addWeeklyMenu, updateWeeklyMenu, showToast }) {
+  const [weekLabel, setWeekLabel] = useState(() => getCurrentWeekLabel())
+  const [weekStart, setWeekStart] = useState(() => getCurrentWeekStart())
+  const [dayName, setDayName] = useState('Monday')
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
+
+  const recentMenus = useMemo(
+    () =>
+      [...weeklyMenus]
+        .sort((a, b) => new Date(b.weekStart || b.createdAt || 0) - new Date(a.weekStart || a.createdAt || 0))
+        .slice(0, 6),
+    [weeklyMenus],
+  )
+
+  function handleFileChange(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  async function handleUpload() {
+    if (!selectedFile) {
+      showToast({ tone: 'warning', message: 'Pilih gambar menu dulu.' })
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const uploaded = await uploadMenuImage(selectedFile, weekLabel, dayName)
+      const existing = weeklyMenus.find(
+        (item) => item.weekLabel === weekLabel && item.dayName === dayName,
+      )
+
+      const payload = {
+        id: existing?.id || `wm-${Date.now()}`,
+        weekLabel,
+        weekStart,
+        dayName,
+        imagePath: uploaded.path,
+        imageUrl: uploaded.publicUrl,
+        updatedAt: new Date().toISOString(),
+      }
+
+      if (existing?.id) await updateWeeklyMenu(payload, 'Menu mingguan berhasil diperbarui.')
+      else await addWeeklyMenu({ ...payload, createdAt: new Date().toISOString() }, 'Menu mingguan berhasil disimpan.')
+
+      setSelectedFile(null)
+      setPreviewUrl('')
+    } catch (error) {
+      console.error('[Gracious] weekly menu upload failed:', error)
+      showToast({ tone: 'error', message: error?.message || 'Upload menu mingguan gagal.' })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
+
+  return (
+    <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+      <Card className="rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Weekly Menu</h2>
+            <p className="text-sm text-slate-500">Upload gambar menu per hari untuk kebutuhan operasional minggu berjalan.</p>
+          </div>
+          <ImagePlus className="text-teal" size={20} />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Week Label">
+            <Input value={weekLabel} onChange={(event) => setWeekLabel(event.target.value)} />
+          </Field>
+          <Field label="Week Start">
+            <Input type="date" value={weekStart} onChange={(event) => setWeekStart(event.target.value)} />
+          </Field>
+          <Field label="Hari">
+            <select value={dayName} onChange={(event) => setDayName(event.target.value)} className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                <option key={day} value={day}>
+                  {day}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <label className="flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-sm font-medium text-slate-600">
+            <Upload size={16} />
+            Pilih gambar menu
+            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          </label>
+        </div>
+
+        {previewUrl ? <img src={previewUrl} alt="Preview weekly menu" className="mt-4 h-48 w-full rounded-[24px] object-cover" /> : null}
+
+        <Button onClick={() => void handleUpload()} disabled={isUploading} className="mt-5 rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark">
+          {isUploading ? 'Mengunggah...' : 'Upload Menu Image'}
+        </Button>
+      </Card>
+
+      <Card className="rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-slate-900">Menu Terbaru</h2>
+          <p className="text-sm text-slate-500">Riwayat singkat menu mingguan yang sudah tersimpan.</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {recentMenus.length ? (
+            recentMenus.map((menu) => (
+              <div key={menu.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                {menu.imageUrl ? <img src={menu.imageUrl} alt={`${menu.dayName} menu`} className="h-40 w-full object-cover" /> : null}
+                <div className="p-4">
+                  <div className="font-medium text-slate-900">{menu.dayName}</div>
+                  <div className="mt-1 text-sm text-slate-500">{menu.weekLabel || menu.weekStart}</div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500 md:col-span-2">
+              Belum ada weekly menu yang tersimpan.
+            </div>
+          )}
+        </div>
+      </Card>
+    </section>
+  )
+}
+
 function buildRevenueChartData(orders) {
   const months = [
     { key: '2025-11', monthLabel: 'Nov' },
@@ -625,6 +770,17 @@ function mealLabel(value) {
 
 function defaultFormatter(value) {
   return Number(value).toLocaleString('id-ID')
+}
+
+function getCurrentWeekStart() {
+  const date = new Date()
+  const day = date.getDay() || 7
+  date.setDate(date.getDate() - day + 1)
+  return date.toISOString().slice(0, 10)
+}
+
+function getCurrentWeekLabel() {
+  return `Week of ${formatDate(getCurrentWeekStart())}`
 }
 
 function useCountUp(target) {

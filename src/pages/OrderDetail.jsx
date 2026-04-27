@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle2, ChevronRight, Clock3, MapPin, PauseCircle, ReceiptText, Route, Upload, User, Wallet, XCircle } from 'lucide-react'
 import { useApp } from '../context/AppContext.jsx'
 import { getStoredUser } from '../hooks/useAuth.js'
+import { getTransferProofUrl, uploadTransferProof } from '../lib/imageUpload.js'
 import { Badge, Button, Card, formatDate, formatDateTime, formatIDR } from '../components/ui.jsx'
 
 const TABS = [
@@ -87,25 +88,20 @@ export default function OrderDetail() {
     const file = event.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = async () => {
-      await updateOrder({
-        ...order,
-        paymentProof: {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          preview: typeof reader.result === 'string' ? reader.result : '',
-        },
-      }, 'Bukti pembayaran berhasil diunggah.')
-    }
-
-    if (file.type === 'application/pdf') {
-      reader.readAsDataURL(file)
-      return
-    }
-
-    reader.readAsDataURL(file)
+    const storedProof = await uploadTransferProof(file, order.id)
+    const previewUrl = await getTransferProofUrl(storedProof.path)
+    await updateOrder({
+      ...order,
+      paymentProof: {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        bucket: storedProof.bucket,
+        path: storedProof.path,
+        preview: previewUrl,
+        uploadedAt: new Date().toISOString(),
+      },
+    }, 'Bukti pembayaran berhasil diunggah.')
   }
 
   async function handleStatusUpdate(nextStatus) {
@@ -479,41 +475,4 @@ function durationLabel(value) {
       monthly_40: 'Monthly 40 Hari',
     }[value] || value || '-'
   )
-}
-
-function mergeRecords(base, extras) {
-  const map = new Map()
-
-  for (const item of base) {
-    if (item?.id) map.set(item.id, item)
-  }
-
-  for (const item of extras) {
-    if (!item?.id) continue
-    if (item._deleted) {
-      map.delete(item.id)
-      continue
-    }
-    map.set(item.id, { ...(map.get(item.id) || {}), ...item })
-  }
-
-  return Array.from(map.values())
-}
-
-function upsertRecord(items, nextItem) {
-  const index = items.findIndex((item) => item.id === nextItem.id)
-  if (index === -1) return [...items, nextItem]
-  const next = [...items]
-  next[index] = nextItem
-  return next
-}
-
-function readStorageArray(key) {
-  try {
-    const raw = localStorage.getItem(key)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
 }

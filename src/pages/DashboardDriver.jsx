@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Phone, Truck, Upload, X, XCircle } from 'lucide-react'
 import { useApp } from '../context/AppContext.jsx'
 import { getStoredUser } from '../hooks/useAuth.js'
+import { getDeliveryPhotoUrl, uploadDeliveryPhoto } from '../lib/imageUpload.js'
 import { Button, Input, Textarea } from '../components/ui.jsx'
 
-const TODAY_ISO = '2026-04-26'
-const STORAGE_ROUTE_ITEMS_KEY = 'gracious_route_items_extra'
+const TODAY_ISO = new Date().toISOString().slice(0, 10)
 
 const FILTERS = [
   { id: 'all', label: 'Semua' },
@@ -17,23 +17,15 @@ const FILTERS = [
 const FAILED_REASONS = ['Tidak ada orang', 'Alamat tidak ditemukan', 'Customer minta reschedule', 'Lainnya']
 
 export default function DashboardDriver() {
-  const { rawDb, deliveryRoutes, customers, orders, programs } = useApp()
+  const { deliveryRoutes, deliveryRouteItems, customers, orders, programs, updateRouteItem } = useApp()
   const currentUser = getStoredUser()
   const [filter, setFilter] = useState('all')
-  const [routeItemExtras, setRouteItemExtras] = useState(() => readStorageArray(STORAGE_ROUTE_ITEMS_KEY))
   const [sheetState, setSheetState] = useState(null)
   const [toast, setToast] = useState(null)
 
-  const deliveryRouteItems = useMemo(
-    () => mergeRecords(rawDb.deliveryRouteItems || [], routeItemExtras),
-    [rawDb.deliveryRouteItems, routeItemExtras],
-  )
-
   const todaysRoute = useMemo(
     () =>
-      deliveryRoutes.find(
-        (route) => route.deliveryDate === TODAY_ISO && route.driverId === currentUser?.id,
-      ) || null,
+      deliveryRoutes.find((route) => route.deliveryDate === TODAY_ISO && route.driverId === currentUser?.id) || null,
     [deliveryRoutes, currentUser],
   )
 
@@ -46,20 +38,14 @@ export default function DashboardDriver() {
         const customer = customers.find((entry) => entry.id === item.customerId)
         const order = orders.find((entry) => entry.id === item.orderId)
         const program = programs.find((entry) => entry.id === order?.programId)
-        const localStatus = item.status || 'pending'
-        const statusTone =
-          localStatus === 'delivered'
-            ? 'success'
-            : localStatus === 'failed'
-              ? 'failed'
-              : 'pending'
+        const status = item.status || 'pending'
 
         return {
           id: item.id,
           rawItem: item,
           sequenceNumber: item.sequenceNumber,
-          status: localStatus,
-          statusTone,
+          status,
+          statusTone: status === 'delivered' ? 'success' : status === 'failed' ? 'failed' : 'pending',
           customerName: customer?.name || item.customerId,
           packageName: shortProgramLabel(program?.name || order?.programId || '-'),
           deliveryAddress: item.deliveryAddress,
@@ -86,9 +72,7 @@ export default function DashboardDriver() {
   const completedCount = deliveryCards.filter((item) => item.status === 'delivered').length
   const failedCount = deliveryCards.filter((item) => item.status === 'failed').length
   const pendingCount = deliveryCards.filter((item) => item.status === 'pending').length
-  const progressPercent = deliveryCards.length
-    ? ((completedCount + failedCount) / deliveryCards.length) * 100
-    : 0
+  const progressPercent = deliveryCards.length ? ((completedCount + failedCount) / deliveryCards.length) * 100 : 0
   const allFinished = deliveryCards.length > 0 && pendingCount === 0
 
   useEffect(() => {
@@ -97,21 +81,12 @@ export default function DashboardDriver() {
     return () => window.clearTimeout(timeoutId)
   }, [toast])
 
-  function persistRouteItems(nextItems) {
-    setRouteItemExtras(nextItems)
-    localStorage.setItem(STORAGE_ROUTE_ITEMS_KEY, JSON.stringify(nextItems))
-  }
-
-  function saveRouteItemPatch(nextItem) {
-    persistRouteItems(upsertRecord(routeItemExtras, nextItem))
-  }
-
   function openDeliveredSheet(item) {
     setSheetState({
       mode: 'delivered',
       item,
       note: '',
-      proof: null,
+      proofFile: null,
       proofPreview: '',
       otherReason: '',
       reason: FAILED_REASONS[0],
@@ -123,7 +98,7 @@ export default function DashboardDriver() {
       mode: 'failed',
       item,
       note: '',
-      proof: null,
+      proofFile: null,
       proofPreview: '',
       otherReason: '',
       reason: FAILED_REASONS[0],
@@ -144,12 +119,7 @@ export default function DashboardDriver() {
         current
           ? {
               ...current,
-              proof: {
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                preview: typeof reader.result === 'string' ? reader.result : '',
-              },
+              proofFile: file,
               proofPreview: typeof reader.result === 'string' ? reader.result : '',
             }
           : current,
@@ -158,45 +128,66 @@ export default function DashboardDriver() {
     reader.readAsDataURL(file)
   }
 
-  function submitDelivered() {
+  async function submitDelivered() {
     if (!sheetState?.item) return
-    const nextItem = {
-      ...sheetState.item.rawItem,
-      status: 'delivered',
-      deliveredAt: new Date().toISOString(),
-      completionNote: sheetState.note.trim(),
-      deliveryNotes: sheetState.note.trim() || sheetState.item.rawItem.deliveryNotes || '',
-      proofOfDelivery: sheetState.proof
-        ? {
-            name: sheetState.proof.name,
-            type: sheetState.proof.type,
-            size: sheetState.proof.size,
-            preview: sheetState.proof.preview,
-          }
-        : sheetState.item.rawItem.proofOfDelivery || null,
+
+    try {
+      let proofOfDelivery = sheetState.item.rawItem.proofOfDelivery || null
+      if (sheetState.proofFile) {
+        const storedPhoto = await uploadDeliveryPhoto(sheetState.proofFile, sheetState.item.id)
+        const previewUrl = await getDeliveryPhotoUrl(storedPhoto.path)
+        proofOfDelivery = {
+          name: sheetState.proofFile.name,
+          type: sheetState.proofFile.type,
+          size: sheetState.proofFile.size,
+          bucket: storedPhoto.bucket,
+          path: storedPhoto.path,
+          preview: previewUrl,
+          uploadedAt: new Date().toISOString(),
+        }
+      }
+
+      await updateRouteItem(
+        {
+          ...sheetState.item.rawItem,
+          status: 'delivered',
+          deliveredAt: new Date().toISOString(),
+          completionNote: sheetState.note.trim(),
+          deliveryNotes: sheetState.note.trim() || sheetState.item.rawItem.deliveryNotes || '',
+          proofOfDelivery,
+        },
+        null,
+      )
+      setSheetState(null)
+      setToast({ tone: 'success', message: `Pengiriman ${sheetState.item.customerName} tersimpan.` })
+    } catch (error) {
+      console.error('[Gracious] submitDelivered failed:', error)
+      setToast({ tone: 'failed', message: error?.message || 'Gagal menyimpan bukti pengiriman.' })
     }
-    saveRouteItemPatch(nextItem)
-    setSheetState(null)
-    setToast({ tone: 'success', message: `✅ ${sheetState.item.customerName} — Terkirim!` })
   }
 
-  function submitFailed() {
+  async function submitFailed() {
     if (!sheetState?.item) return
     if (sheetState.reason === 'Lainnya' && !sheetState.otherReason.trim()) return
 
-    const reasonText =
-      sheetState.reason === 'Lainnya' ? sheetState.otherReason.trim() : sheetState.reason
-
-    const nextItem = {
-      ...sheetState.item.rawItem,
-      status: 'failed',
-      failedAt: new Date().toISOString(),
-      failedReason: reasonText,
-      deliveryNotes: reasonText,
+    try {
+      const reasonText = sheetState.reason === 'Lainnya' ? sheetState.otherReason.trim() : sheetState.reason
+      await updateRouteItem(
+        {
+          ...sheetState.item.rawItem,
+          status: 'failed',
+          failedAt: new Date().toISOString(),
+          failedReason: reasonText,
+          deliveryNotes: reasonText,
+        },
+        null,
+      )
+      setSheetState(null)
+      setToast({ tone: 'failed', message: `Status gagal untuk ${sheetState.item.customerName} tersimpan.` })
+    } catch (error) {
+      console.error('[Gracious] submitFailed failed:', error)
+      setToast({ tone: 'failed', message: error?.message || 'Gagal menyimpan status gagal.' })
     }
-    saveRouteItemPatch(nextItem)
-    setSheetState(null)
-    setToast({ tone: 'failed', message: `❌ ${sheetState.item.customerName} — Gagal, dicatat.` })
   }
 
   return (
@@ -208,11 +199,10 @@ export default function DashboardDriver() {
           <section className="bg-teal px-4 pb-6 pt-6 text-white shadow-[0_16px_30px_rgba(13,148,136,0.25)]">
             <div className="mx-auto max-w-2xl">
               <div className="text-2xl font-semibold tracking-tight">
-                🚚 RUTE {todaysRoute.routeLabel.replace('RUTE ', '')} -{' '}
-                {(currentUser?.name || 'Driver').toUpperCase()}
+                RUTE {todaysRoute.routeLabel.replace('RUTE ', '')} - {(currentUser?.name || 'Driver').toUpperCase()}
               </div>
               <div className="mt-2 text-sm text-white/90">
-                Minggu, 26 April 2026 | {deliveryCards.length} titik pengiriman
+                {formatFriendlyDate(TODAY_ISO)} | {deliveryCards.length} titik pengiriman
               </div>
               <div className="mt-4">
                 <div className="mb-2 flex items-center justify-between text-sm">
@@ -222,10 +212,7 @@ export default function DashboardDriver() {
                   </span>
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-white/20">
-                  <div
-                    className="h-full rounded-full bg-white transition-all"
-                    style={{ width: `${progressPercent}%` }}
-                  />
+                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${progressPercent}%` }} />
                 </div>
               </div>
             </div>
@@ -239,9 +226,7 @@ export default function DashboardDriver() {
                   type="button"
                   onClick={() => setFilter(chip.id)}
                   className={`min-h-[44px] rounded-full px-4 text-sm font-medium transition ${
-                    filter === chip.id
-                      ? 'bg-teal text-white shadow-sm'
-                      : 'border border-slate-200 bg-white text-slate-600'
+                    filter === chip.id ? 'bg-teal text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600'
                   }`}
                 >
                   {chip.label}
@@ -254,7 +239,7 @@ export default function DashboardDriver() {
             {filteredCards.map((item) => (
               <article
                 key={item.id}
-                className={`rounded-[28px] border p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] transition ${
+                className={`rounded-[28px] border p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] ${
                   item.statusTone === 'success'
                     ? 'border-emerald-200 bg-emerald-50/70'
                     : item.statusTone === 'failed'
@@ -278,20 +263,20 @@ export default function DashboardDriver() {
 
                 <div className="mt-5 space-y-3 text-sm text-slate-700">
                   <div className="rounded-2xl bg-slate-50 px-4 py-4">
-                    <div className="mb-1 font-semibold text-slate-900">📍 Alamat pengiriman</div>
+                    <div className="mb-1 font-semibold text-slate-900">Alamat pengiriman</div>
                     <div className="leading-6">{item.deliveryAddress}</div>
                   </div>
 
                   {item.deliveryNotes ? (
                     <div className="rounded-2xl bg-amber-50 px-4 py-3 text-amber-900">
-                      <div className="font-semibold">⚠️ Catatan pengiriman</div>
+                      <div className="font-semibold">Catatan pengiriman</div>
                       <div className="mt-1">{item.deliveryNotes}</div>
                     </div>
                   ) : null}
 
                   {item.dietaryNotes ? (
                     <div className="rounded-2xl bg-rose-50 px-4 py-3 text-rose-900">
-                      <div className="font-semibold">🚫 Pantangan makan</div>
+                      <div className="font-semibold">Pantangan makan</div>
                       <div className="mt-1">{item.dietaryNotes}</div>
                     </div>
                   ) : null}
@@ -309,12 +294,18 @@ export default function DashboardDriver() {
                       <div className="mt-1">{item.completionNote}</div>
                     </div>
                   ) : null}
+
+                  {item.proofOfDelivery?.preview ? (
+                    <div className="rounded-2xl bg-white p-3">
+                      <img src={item.proofOfDelivery.preview} alt="Bukti delivery" className="h-36 w-full rounded-2xl object-cover" />
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="mt-5 flex flex-col gap-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                     <div className="space-y-1">
-                      <div className="font-medium text-slate-800">📞 No HP: {item.phone}</div>
+                      <div className="font-medium text-slate-800">No HP: {item.phone}</div>
                       <div className="text-slate-500">UNTIL: {formatLongDate(item.untilDate)}</div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -360,9 +351,7 @@ export default function DashboardDriver() {
                     Progress: {completedCount + failedCount}/{deliveryCards.length} titik selesai
                   </div>
                   <div className="mt-1 text-sm text-slate-500">
-                    {allFinished
-                      ? '🎉 Semua pengiriman selesai! Hari ini sudah tuntas.'
-                      : `${pendingCount} belum, ${failedCount} gagal / tidak ada`}
+                    {allFinished ? 'Semua pengiriman selesai.' : `${pendingCount} belum, ${failedCount} gagal / tidak ada`}
                   </div>
                 </div>
                 <div className="grid h-12 w-12 place-items-center rounded-2xl bg-teal/10 text-teal-dark">
@@ -371,21 +360,6 @@ export default function DashboardDriver() {
               </div>
             </div>
           </section>
-
-          {allFinished ? (
-            <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/35 px-4">
-              <div className="w-full max-w-md rounded-[32px] border border-emerald-200 bg-white p-6 text-center shadow-2xl">
-                <div className="text-3xl">🎉</div>
-                <h3 className="mt-3 text-2xl font-semibold text-slate-900">Semua Pengiriman Hari Ini Selesai!</h3>
-                <p className="mt-3 text-sm text-slate-600">
-                  {completedCount} Terkirim | {failedCount} Gagal
-                </p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Terima kasih, {currentUser?.name || 'Driver'}! Kerja keras hari ini sudah tuntas.
-                </p>
-              </div>
-            </div>
-          ) : null}
 
           {sheetState ? (
             <BottomSheet onClose={() => setSheetState(null)}>
@@ -503,11 +477,7 @@ function BottomSheet({ children, onClose }) {
           <div className="h-1.5 w-16 rounded-full bg-slate-200" />
         </div>
         <div className="mb-4 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"
-          >
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500">
             <X size={16} />
           </button>
         </div>
@@ -518,16 +488,8 @@ function BottomSheet({ children, onClose }) {
 }
 
 function ToastBanner({ toast }) {
-  const cls =
-    toast.tone === 'failed'
-      ? 'border-rose-200 bg-rose-50 text-rose-800'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-
-  return (
-    <div className={`fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-2xl border px-4 py-3 text-sm font-medium shadow-lg ${cls}`}>
-      {toast.message}
-    </div>
-  )
+  const cls = toast.tone === 'failed' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+  return <div className={`fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-2xl border px-4 py-3 text-sm font-medium shadow-lg ${cls}`}>{toast.message}</div>
 }
 
 function StatusBadge({ status }) {
@@ -553,18 +515,14 @@ function MetaBadge({ badge }) {
     baru: 'bg-sky-100 text-sky-700',
   }
 
-  return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${styles[badge.type] || styles.baru}`}>
-      {badge.label}
-    </span>
-  )
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${styles[badge.type] || styles.baru}`}>{badge.label}</span>
 }
 
 function computeMetaBadge(customer, order, item) {
   if (item.statusLabel === 'pindah_alamat' || (customer?.addressNotes || '').toLowerCase().includes('pindah')) {
     return { type: 'pindah_alamat', label: 'Pindah Alamat' }
   }
-  if (order?.endDate === TODAY_ISO || order?.endDate === '2026-04-25') {
+  if (order?.endDate === TODAY_ISO) {
     return { type: 'habis', label: 'Habis' }
   }
   if (order?.createdAt?.startsWith(TODAY_ISO)) {
@@ -574,11 +532,7 @@ function computeMetaBadge(customer, order, item) {
 }
 
 function shortProgramLabel(name) {
-  return String(name)
-    .replace('Program', '')
-    .replace('Diet', '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return String(name).replace('Program', '').replace('Diet', '').replace(/\s+/g, ' ').trim()
 }
 
 function formatLongDate(isoDate) {
@@ -590,43 +544,19 @@ function formatLongDate(isoDate) {
   })
 }
 
+function formatFriendlyDate(isoDate) {
+  const date = new Date(`${isoDate}T00:00:00`)
+  return date.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 function sortSequence(a, b) {
   return String(a || '').localeCompare(String(b || ''), undefined, {
     numeric: true,
     sensitivity: 'base',
   })
-}
-
-function mergeRecords(base, extras) {
-  const map = new Map()
-  for (const item of base) {
-    if (item?.id) map.set(item.id, item)
-  }
-  for (const item of extras) {
-    if (!item?.id) continue
-    if (item._deleted) {
-      map.delete(item.id)
-      continue
-    }
-    map.set(item.id, { ...(map.get(item.id) || {}), ...item })
-  }
-  return Array.from(map.values())
-}
-
-function upsertRecord(items, nextItem) {
-  const index = items.findIndex((item) => item.id === nextItem.id)
-  if (index === -1) return [...items, nextItem]
-  const next = [...items]
-  next[index] = nextItem
-  return next
-}
-
-function readStorageArray(key) {
-  try {
-    const raw = localStorage.getItem(key)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
 }

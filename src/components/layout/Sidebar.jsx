@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, Home, Map, MapPinned, Package, PlusCircle, Truck, UserCog, Users, X } from 'lucide-react'
+import { BarChart3, ClipboardList, Home, Link2, Map, MapPinned, Package, PlusCircle, Truck, UserCog, Users, Utensils, X } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 
@@ -14,6 +14,8 @@ const MENU_BY_ROLE = {
     { label: 'Dashboard', to: '/dashboard/admin', icon: Home },
     { label: 'Semua Pesanan', to: '/orders', icon: Package, badgeKey: 'orders' },
     { label: 'Customer', to: '/customers', icon: Users, badgeKey: 'customers' },
+    { label: 'Menu Mingguan', to: '/menu-manager', icon: Utensils },
+    { label: 'Generate Link Portal', to: '/generate-link', icon: Link2 },
     { label: 'Kelola Rute', to: '/routes', icon: Map, badgeKey: 'routes' },
     { label: 'Driver', to: '/drivers', icon: Truck },
     { label: 'Zona', to: '/zones', icon: MapPinned },
@@ -26,6 +28,8 @@ const MENU_BY_ROLE = {
     { label: 'Input Pesanan Baru', to: '/orders/new', icon: PlusCircle, prominent: true },
     { label: 'Pesanan Saya', to: '/orders', icon: ClipboardList, badgeKey: 'orders' },
     { label: 'Customer', to: '/customers', icon: Users, badgeKey: 'customers' },
+    { label: 'Menu Mingguan', to: '/menu-manager', icon: Utensils },
+    { label: 'Generate Link Portal', to: '/generate-link', icon: Link2 },
   ],
   address_admin: [
     { label: 'Dashboard Rute', to: '/dashboard/alamat', icon: Home },

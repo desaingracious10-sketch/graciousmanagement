@@ -1,4 +1,5 @@
 import { supabase, SUPABASE_CONFIGURED } from './supabase.js'
+import { generatePortalToken } from '../utils/generateToken.js'
 
 // ============ FIELD-NAME TRANSFORM ============
 // Supabase columns are snake_case. The rest of the app expects camelCase.
@@ -150,8 +151,7 @@ export async function getCustomers() {
 export async function createCustomer(customerData) {
   ensureClient()
   const portalToken =
-    customerData.portalToken ||
-    Math.random().toString(36).slice(2, 8) + Date.now().toString(36)
+    customerData.portalToken || generatePortalToken(customerData.id || customerData.name || 'cust')
 
   const payload = toDb({ ...customerData, portalToken })
   const { data, error } = await supabase.from('customers').insert(payload).select().single()
@@ -165,6 +165,19 @@ export async function updateCustomer(id, updates) {
     .from('customers')
     .update(toDb(updates))
     .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return fromDb(data)
+}
+
+export async function regenerateCustomerPortalToken(customerId) {
+  ensureClient()
+  const portalToken = generatePortalToken(customerId)
+  const { data, error } = await supabase
+    .from('customers')
+    .update({ portal_token: portalToken })
+    .eq('id', customerId)
     .select()
     .single()
   if (error) throw error
@@ -456,6 +469,29 @@ export async function getWeeklyMenus() {
     .order('week_start', { ascending: false })
   if (error) throw error
   return fromDb(data || [])
+}
+
+export async function createWeeklyMenu(menuData) {
+  ensureClient()
+  const { data, error } = await supabase
+    .from('weekly_menus')
+    .insert(toDb(menuData))
+    .select()
+    .single()
+  if (error) throw error
+  return fromDb(data)
+}
+
+export async function updateWeeklyMenu(id, updates) {
+  ensureClient()
+  const { data, error } = await supabase
+    .from('weekly_menus')
+    .update(toDb(updates))
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return fromDb(data)
 }
 
 // ============ REALTIME ============

@@ -19,6 +19,9 @@ const RoutePrint = lazy(() => import('./pages/RoutePrint.jsx'))
 const ZoneManager = lazy(() => import('./pages/ZoneManager.jsx'))
 const DriverList = lazy(() => import('./pages/DriverList.jsx'))
 const UserManager = lazy(() => import('./pages/UserManager.jsx'))
+const CustomerPortal = lazy(() => import('./pages/portal/CustomerPortal.jsx'))
+const GeneratePortalLink = lazy(() => import('./pages/sales/GeneratePortalLink.jsx'))
+const MenuManager = lazy(() => import('./pages/sales/MenuManager.jsx'))
 
 function useSession() {
   const { currentUser } = useAuth()
@@ -59,6 +62,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/portal/:token" element={<CustomerPortal />} />
 
         <Route
           element={
@@ -89,6 +93,8 @@ export default function App() {
             <Route path="/orders/new" element={<NewOrder />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/customers" element={<CustomerList />} />
+            <Route path="/generate-link" element={<GeneratePortalLink />} />
+            <Route path="/menu-manager" element={<MenuManager />} />
           </Route>
 
           <Route element={<RoleGuard roles={['superadmin', 'address_admin']} />}>

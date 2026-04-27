@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronDown, ChevronUp, Eye, Package, Plus, Upload, Users, Wallet } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ChevronDown, ChevronUp, Eye, Package, Plus, Sparkles, Upload, Users, Wallet } from 'lucide-react'
 import { useApp } from '../context/AppContext.jsx'
 import { getStoredUser } from '../hooks/useAuth.js'
+import { getTransferProofUrl, uploadTransferProof } from '../lib/imageUpload.js'
 import { Badge, Button, Card, Table, formatDate, formatIDR } from '../components/ui.jsx'
-
-const STORAGE_PROOF_KEY = 'gracious_sales_uploaded_proofs'
 
 const PACKAGE_SUMMARIES = {
   p1: { weekly: 476000, monthly: 1680000 },
@@ -17,15 +16,46 @@ const PACKAGE_SUMMARIES = {
   p7: { weekly: 399000, monthly: 1450000 },
 }
 
+const FILTER_CHIPS = [
+  { id: 'all', label: 'Semua' },
+  { id: 'pending', label: 'Menunggu' },
+  { id: 'verified', label: 'Verified' },
+  { id: 'rejected', label: 'Ditolak' },
+]
+
 export default function DashboardSales() {
-  const { orders, customers, programs, users } = useApp()
+  const { orders, customers, programs, users, updateOrder } = useApp()
+  const navigate = useNavigate()
   const currentUser = getStoredUser()
   const [openProgramId, setOpenProgramId] = useState(PROGRAM_ORDER[0])
-  const [proofUploads, setProofUploads] = useState(() => readProofUploads())
   const [toast, setToast] = useState(null)
+  const [smartPaste, setSmartPaste] = useState('')
+  const [filter, setFilter] = useState('all')
 
   const fileInputRefs = useRef({})
   const todayIso = '2026-04-26'
+
+  function todayHuman() {
+    return new Date().toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
+
+  function handleParseAndOpen() {
+    if (!smartPaste.trim()) {
+      setToast({ tone: 'warning', message: 'Paste teks WhatsApp customer dulu.' })
+      return
+    }
+    try {
+      sessionStorage.setItem('gracious_pending_smart_paste', smartPaste)
+    } catch {
+      // ignore
+    }
+    navigate('/orders/new')
+  }
 
   const myOrders = useMemo(
     () =>
@@ -54,7 +84,6 @@ export default function DashboardSales() {
       myOrders.slice(0, 10).map((order) => {
         const customer = customers.find((item) => item.id === order.customerId)
         const program = programs.find((item) => item.id === order.programId)
-        const uploadedProof = proofUploads[order.id]
         return {
           id: order.id,
           orderNumber: order.orderNumber,
@@ -63,11 +92,11 @@ export default function DashboardSales() {
           startDate: formatDate(order.startDate),
           amount: formatIDR(order.paymentAmount),
           paymentStatus: order.paymentStatus,
-          hasProof: Boolean(order.paymentProof || uploadedProof),
-          proofLabel: uploadedProof?.name || order.paymentProof?.name || '',
+          hasProof: Boolean(order.paymentProof),
+          proofLabel: order.paymentProof?.name || '',
         }
       }),
-    [myOrders, customers, programs, proofUploads],
+    [myOrders, customers, programs],
   )
 
   const packageRows = useMemo(
@@ -88,82 +117,129 @@ export default function DashboardSales() {
     fileInputRefs.current[orderId]?.click()
   }
 
-  function handleProofSelected(orderId, event) {
+  async function handleProofSelected(orderId, event) {
     const file = event.target.files?.[0]
     if (!file) return
 
-    const nextUploads = {
-      ...proofUploads,
-      [orderId]: {
-        name: file.name,
-        size: file.size,
-        uploadedAt: new Date().toISOString(),
-      },
+    try {
+      const order = orders.find((item) => item.id === orderId)
+      if (!order) return
+      const storedProof = await uploadTransferProof(file, orderId)
+      const previewUrl = await getTransferProofUrl(storedProof.path)
+      await updateOrder({
+        ...order,
+        paymentProof: {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          bucket: storedProof.bucket,
+          path: storedProof.path,
+          preview: previewUrl,
+          uploadedAt: new Date().toISOString(),
+        },
+      }, null)
+      setToast({ tone: 'success', message: `Bukti transfer untuk ${order.orderNumber} berhasil diunggah.` })
+    } catch (error) {
+      console.error('[Gracious] sales proof upload failed:', error)
+      setToast({ tone: 'warning', message: error?.message || 'Upload bukti transfer gagal.' })
+    } finally {
+      event.target.value = ''
     }
-    setProofUploads(nextUploads)
-    localStorage.setItem(STORAGE_PROOF_KEY, JSON.stringify(nextUploads))
-    setToast({ tone: 'success', message: `Bukti transfer untuk ${orderId} berhasil diunggah.` })
   }
 
+  const filteredCards = useMemo(() => {
+    if (filter === 'all') return latestRows
+    return latestRows.filter((row) => row.paymentStatus === filter)
+  }, [latestRows, filter])
+
   return (
-    <div className="px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <section className="rounded-[32px] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#fef9ee_100%)] px-6 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.05)] sm:px-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="text-sm font-medium uppercase tracking-[0.16em] text-teal-dark">Sales Workspace</div>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-gracious-navy">
-                Selamat datang, {currentUser?.name || 'Admin Sales'} 👋
-              </h1>
-              <p className="mt-2 text-sm text-slate-500">
-                Kamu sudah input {metrics.todayOrders} pesanan hari ini
-              </p>
-            </div>
-            <Link
-              to="/orders/new"
-              className="inline-flex items-center justify-center gap-3 rounded-2xl bg-teal px-6 py-4 text-base font-semibold text-white shadow-[0_20px_45px_rgba(13,148,136,0.24)] transition hover:-translate-y-0.5 hover:bg-teal-dark"
-            >
-              <Plus size={20} />
-              Input Pesanan Baru
-            </Link>
+    <div className="px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+      <div className="mx-auto max-w-5xl space-y-5 lg:space-y-8">
+        <section>
+          <div className="text-2xl font-bold tracking-tight text-slate-900 lg:text-3xl">
+            Halo, {currentUser?.name?.split(' ')[0] || 'Sales'} 👋
           </div>
+          <div className="mt-1 text-sm text-slate-500 capitalize">{todayHuman()}</div>
         </section>
 
         {toast ? <ToastBanner toast={toast} /> : null}
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard title="Pesanan Saya Hari Ini" value={metrics.todayOrders} icon={Package} tint="teal" />
-          <MetricCard title="Menunggu Verifikasi" value={metrics.pendingOrders} icon={Wallet} tint="amber" />
-          <MetricCard title="Pesanan Aktif Bulan Ini" value={metrics.activeThisMonth} icon={Package} tint="navy" />
-          <MetricCard title="Total Customer Saya" value={metrics.totalCustomers} icon={Users} tint="green" />
+        <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-teal to-[#0a7068] p-5 text-white shadow-[0_18px_40px_rgba(13,148,136,0.28)]">
+          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-teal-50/90">
+            <Sparkles size={16} /> Smart Paste
+          </div>
+          <div className="mt-2 text-lg font-semibold">✨ Paste teks WhatsApp customer</div>
+          <textarea
+            value={smartPaste}
+            onChange={(e) => setSmartPaste(e.target.value)}
+            rows={4}
+            placeholder={'Contoh:\n74. Nama: Wegi Randol\nAlamat: ...\npaket: Diet Lunch 5 hari'}
+            className="mt-3 w-full rounded-2xl border-0 bg-white/95 p-3 text-base text-slate-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-white/60"
+            style={{ fontSize: '16px' }}
+          />
+          <button
+            type="button"
+            onClick={handleParseAndOpen}
+            className="mt-3 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-base font-semibold text-teal-dark transition active:scale-[0.98]"
+          >
+            Parse &amp; Input Pesanan →
+          </button>
         </section>
 
-        <section>
-          <Card className="rounded-[28px] border-teal/15 bg-[linear-gradient(135deg,rgba(13,148,136,0.12),rgba(255,255,255,0.95))] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="text-sm font-medium uppercase tracking-[0.16em] text-teal-dark">Action Center</div>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">+ Input Pesanan Baru</h2>
-                <p className="mt-2 text-sm text-slate-600">
-                  Buka Smart Paste untuk copy-paste chat WhatsApp customer dan isi order lebih cepat.
-                </p>
-              </div>
-              <Button as={Link} to="/orders/new" className="rounded-2xl px-6 py-3 text-base bg-teal hover:bg-teal-dark">
-                <Plus size={18} />
-                Buka Form Order
-              </Button>
-            </div>
-          </Card>
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <MetricCard title="Hari Ini" value={metrics.todayOrders} icon={Package} tint="teal" />
+          <MetricCard title="Pending" value={metrics.pendingOrders} icon={Wallet} tint="amber" />
+          <MetricCard title="Bulan Ini" value={metrics.activeThisMonth} icon={Package} tint="navy" />
+          <MetricCard title="Customer Saya" value={metrics.totalCustomers} icon={Users} tint="green" />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <Card className="rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Pesanan Terbaru Saya</h2>
-                <p className="text-sm text-slate-500">10 pesanan terakhir yang kamu input di dashboard ini.</p>
-              </div>
+        <section className="space-y-3">
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Pesanan Terbaru</h2>
+              <p className="text-xs text-slate-500">10 pesanan terakhir kamu.</p>
             </div>
+          </div>
+
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0">
+            {FILTER_CHIPS.map((chip) => {
+              const active = filter === chip.id
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setFilter(chip.id)}
+                  className={`min-h-[40px] shrink-0 rounded-full px-4 text-sm font-semibold transition active:scale-[0.97] ${
+                    active
+                      ? 'bg-teal text-white shadow-[0_8px_16px_rgba(13,148,136,0.25)]'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="space-y-3 lg:hidden">
+            {filteredCards.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+                Belum ada pesanan{filter !== 'all' ? ' di filter ini' : ''}.
+              </div>
+            ) : (
+              filteredCards.map((row) => (
+                <OrderCard
+                  key={row.id}
+                  row={row}
+                  onTriggerUpload={() => triggerProofUpload(row.id)}
+                  onProofChange={(event) => handleProofSelected(row.id, event)}
+                  fileInputRefs={fileInputRefs}
+                />
+              ))
+            )}
+          </div>
+
+          <Card className="hidden rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)] lg:block">
             <Table
               columns={[
                 { key: 'orderNumber', label: 'No Order' },
@@ -181,14 +257,8 @@ export default function DashboardSales() {
                   label: 'Aksi',
                   render: (row) => (
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        as={Link}
-                        to={`/orders/${row.id}`}
-                        variant="secondary"
-                        className="rounded-xl px-3 py-2"
-                      >
-                        <Eye size={14} />
-                        Lihat
+                      <Button as={Link} to={`/orders/${row.id}`} variant="secondary" className="rounded-xl px-3 py-2">
+                        <Eye size={14} /> Lihat
                       </Button>
                       {!row.hasProof ? (
                         <>
@@ -197,8 +267,7 @@ export default function DashboardSales() {
                             onClick={() => triggerProofUpload(row.id)}
                             className="inline-flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800 transition hover:bg-amber-200"
                           >
-                            <Upload size={14} />
-                            Upload Bukti
+                            <Upload size={14} /> Upload Bukti
                           </button>
                           <input
                             ref={(node) => {
@@ -219,54 +288,100 @@ export default function DashboardSales() {
                   ),
                 },
               ]}
-              rows={latestRows}
+              rows={filteredCards}
               empty="Belum ada pesanan yang kamu input."
             />
           </Card>
-
-          <Card className="rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
-            <div className="mb-5">
-              <h2 className="text-lg font-semibold text-slate-900">Daftar Paket</h2>
-              <p className="text-sm text-slate-500">Quick reference harga paket Gracious untuk bantu closing lebih cepat.</p>
-            </div>
-            <div className="space-y-3">
-              {packageRows.map((program) => {
-                const summary = PACKAGE_SUMMARIES[program.id]
-                const expanded = openProgramId === program.id
-                return (
-                  <div key={program.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                    <button
-                      type="button"
-                      onClick={() => setOpenProgramId(expanded ? null : program.id)}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-white"
-                    >
-                      <div>
-                        <div className="font-medium text-slate-900">{program.name}</div>
-                        <div className="mt-1 text-sm text-slate-500">
-                          Weekly {formatIDR(summary?.weekly || 0)} | Monthly {formatIDR(summary?.monthly || 0)}
-                        </div>
-                      </div>
-                      {expanded ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
-                    </button>
-                    {expanded ? (
-                      <div className="border-t border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
-                        <div className="mb-3 font-medium text-slate-800">Semua variasi harga</div>
-                        <div className="grid gap-2">
-                          {Object.entries(program.prices || {}).map(([key, amount]) => (
-                            <div key={key} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
-                              <span>{humanizePriceKey(key)}</span>
-                              <span className="font-medium text-slate-800">{formatIDR(amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                )
-              })}
-            </div>
-          </Card>
         </section>
+
+        <section>
+          <h2 className="text-lg font-semibold text-slate-900">Daftar Paket</h2>
+          <p className="text-xs text-slate-500">Quick reference harga paket untuk bantu closing.</p>
+          <div className="mt-3 space-y-2">
+            {packageRows.map((program) => {
+              const summary = PACKAGE_SUMMARIES[program.id]
+              const expanded = openProgramId === program.id
+              return (
+                <div key={program.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setOpenProgramId(expanded ? null : program.id)}
+                    className="flex min-h-[64px] w-full items-center justify-between gap-3 px-4 py-3 text-left transition active:scale-[0.99]"
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">{program.name}</div>
+                      <div className="mt-0.5 text-xs text-slate-500">
+                        Weekly {formatIDR(summary?.weekly || 0)} · Monthly {formatIDR(summary?.monthly || 0)}
+                      </div>
+                    </div>
+                    {expanded ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                  </button>
+                  {expanded ? (
+                    <div className="border-t border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                      <div className="grid gap-2">
+                        {Object.entries(program.prices || {}).map(([key, amount]) => (
+                          <div key={key} className="flex items-center justify-between rounded-xl bg-white px-3 py-2.5">
+                            <span className="text-xs">{humanizePriceKey(key)}</span>
+                            <span className="text-sm font-semibold text-slate-800">{formatIDR(amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function OrderCard({ row, onTriggerUpload, onProofChange, fileInputRefs }) {
+  return (
+    <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-slate-500">{row.orderNumber}</div>
+          <div className="mt-0.5 truncate text-base font-bold text-slate-900">{row.customerName}</div>
+        </div>
+        <PaymentBadge status={row.paymentStatus} />
+      </div>
+      <div className="mt-2 text-sm text-slate-600">{row.packageName}</div>
+      <div className="mt-1 text-xs text-slate-500">Mulai {row.startDate} · {row.amount}</div>
+
+      <div className="mt-4 flex flex-col gap-2">
+        <Link
+          to={`/orders/${row.id}`}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition active:scale-[0.98]"
+        >
+          <Eye size={15} /> Lihat Detail
+        </Link>
+        {!row.hasProof ? (
+          <>
+            <button
+              type="button"
+              onClick={onTriggerUpload}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-amber-100 px-4 text-sm font-semibold text-amber-800 transition active:scale-[0.98]"
+            >
+              <Upload size={15} /> Upload Bukti
+            </button>
+            <input
+              ref={(node) => {
+                if (node) fileInputRefs.current[row.id] = node
+              }}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onProofChange}
+            />
+          </>
+        ) : (
+          <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-center text-xs font-medium text-emerald-700">
+            ✅ Bukti sudah diunggah
+          </div>
+        )}
       </div>
     </div>
   )
@@ -282,16 +397,16 @@ function MetricCard({ title, value, icon: Icon, tint }) {
   }
 
   return (
-    <Card className="rounded-[28px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-sm font-medium text-slate-500">{title}</div>
-          <div className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">
+    <Card className="rounded-2xl p-3 shadow-[0_8px_22px_rgba(15,23,42,0.05)] sm:rounded-[28px] sm:p-5 sm:shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-xs font-medium text-slate-500 sm:text-sm">{title}</div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:mt-4 sm:text-3xl">
             {displayValue.toLocaleString('id-ID')}
           </div>
         </div>
-        <div className={`grid h-12 w-12 place-items-center rounded-2xl border bg-gradient-to-br ${tintClasses[tint]}`}>
-          <Icon size={22} />
+        <div className={`grid h-9 w-9 place-items-center rounded-xl border bg-gradient-to-br sm:h-12 sm:w-12 sm:rounded-2xl ${tintClasses[tint]}`}>
+          <Icon size={18} />
         </div>
       </div>
     </Card>
@@ -357,15 +472,6 @@ function useCountUp(target) {
   }, [target])
 
   return display
-}
-
-function readProofUploads() {
-  try {
-    const raw = localStorage.getItem(STORAGE_PROOF_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch {
-    return {}
-  }
 }
 
 const PROGRAM_ORDER = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7']

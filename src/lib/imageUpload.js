@@ -23,12 +23,15 @@ function ensureSupabase() {
 
 export async function uploadTransferProof(file, orderId) {
   ensureSupabase()
-  const compressed = await compressImage(file, 0.5)
-  const filePath = `orders/${orderId}_${Date.now()}.webp`
+  const isPdf = file.type === 'application/pdf'
+  const payload = isPdf ? file : await compressImage(file, 0.5)
+  const extension = isPdf ? 'pdf' : 'webp'
+  const contentType = isPdf ? 'application/pdf' : 'image/webp'
+  const filePath = `orders/${orderId}_${Date.now()}.${extension}`
 
   const { error } = await supabase.storage
     .from('transfer-proofs')
-    .upload(filePath, compressed, { contentType: 'image/webp', upsert: false })
+    .upload(filePath, payload, { contentType, upsert: false })
 
   if (error) throw error
   return { path: filePath, bucket: 'transfer-proofs' }
@@ -91,9 +94,26 @@ export async function listFiles(bucket, folder = '') {
   ensureSupabase()
   const { data, error } = await supabase.storage
     .from(bucket)
-    .list(folder, { sortBy: { column: 'created_at', order: 'desc' } })
+    .list(folder, {
+      limit: 1000,
+      sortBy: { column: 'created_at', order: 'desc' },
+    })
   if (error) throw error
   return data || []
+}
+
+function toFileSize(files) {
+  return files.reduce((acc, file) => acc + (file.metadata?.size || 0), 0)
+}
+
+function toBucketSummary(files) {
+  const totalBytes = toFileSize(files)
+  return {
+    files,
+    count: files.length,
+    totalBytes,
+    sizeMB: Number((totalBytes / 1024 / 1024).toFixed(2)),
+  }
 }
 
 export async function getStorageUsage() {
@@ -104,18 +124,41 @@ export async function getStorageUsage() {
     listFiles('delivery-photos', 'items').catch(() => []),
   ])
 
-  const sumSize = (files) => files.reduce((acc, f) => acc + (f.metadata?.size || 0), 0)
-  const transferSize = sumSize(transferFiles)
-  const menuSize = sumSize(menuFiles)
-  const deliverySize = sumSize(deliveryFiles)
-  const totalBytes = transferSize + menuSize + deliverySize
+  const transferSummary = toBucketSummary(transferFiles)
+  const menuSummary = toBucketSummary(menuFiles)
+  const deliverySummary = toBucketSummary(deliveryFiles)
+  const totalBytes = transferSummary.totalBytes + menuSummary.totalBytes + deliverySummary.totalBytes
   const totalMB = totalBytes / 1024 / 1024
 
   return {
-    transferProofs: { count: transferFiles.length, sizeMB: (transferSize / 1024 / 1024).toFixed(2) },
-    menuImages: { count: menuFiles.length, sizeMB: (menuSize / 1024 / 1024).toFixed(2) },
-    deliveryPhotos: { count: deliveryFiles.length, sizeMB: (deliverySize / 1024 / 1024).toFixed(2) },
-    totalMB: totalMB.toFixed(2),
-    usagePercent: ((totalMB / 1024) * 100).toFixed(1),
+    transferProofs: transferSummary,
+    menuImages: menuSummary,
+    deliveryPhotos: deliverySummary,
+    totalBytes,
+    totalMB: Number(totalMB.toFixed(2)),
+    usagePercent: Number(((totalMB / 1024) * 100).toFixed(1)),
+  }
+}
+
+export async function deleteFilesOlderThan({ bucket, folder = '', cutoffDate }) {
+  ensureSupabase()
+  const cutoffTime = new Date(cutoffDate).getTime()
+  const files = await listFiles(bucket, folder)
+  const staleFiles = files.filter((file) => {
+    const createdAt = file.created_at || file.updated_at || file.last_accessed_at
+    return createdAt ? new Date(createdAt).getTime() < cutoffTime : false
+  })
+
+  if (!staleFiles.length) {
+    return { deletedCount: 0, deletedPaths: [] }
+  }
+
+  const deletedPaths = staleFiles.map((file) => `${folder ? `${folder}/` : ''}${file.name}`)
+  const { error } = await supabase.storage.from(bucket).remove(deletedPaths)
+  if (error) throw error
+
+  return {
+    deletedCount: deletedPaths.length,
+    deletedPaths,
   }
 }

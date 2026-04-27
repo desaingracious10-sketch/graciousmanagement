@@ -1,6 +1,4 @@
-import db from '../data/db.json'
-
-const STORAGE_ZONES_KEY = 'gracious_zones_extra'
+import { FALLBACK_ZONES } from '../lib/fallbackCatalog.js'
 
 const EXTRA_KEYWORDS = {
   z1: ['setiabudi', 'kuningan', 'gatot subroto', 'tb simatupang', 'lebak bulus'],
@@ -49,20 +47,7 @@ function emptyResult() {
 }
 
 function readZones() {
-  const baseZones = db.zones || []
-
-  if (typeof window === 'undefined') {
-    return decorateZones(baseZones)
-  }
-
-  try {
-    const raw = localStorage.getItem(STORAGE_ZONES_KEY)
-    const extras = raw ? JSON.parse(raw) : []
-    const merged = mergeRecords(baseZones, Array.isArray(extras) ? extras : [])
-    return decorateZones(merged)
-  } catch {
-    return decorateZones(baseZones)
-  }
+  return decorateZones(FALLBACK_ZONES)
 }
 
 function decorateZones(zones) {
@@ -70,20 +55,4 @@ function decorateZones(zones) {
     ...zone,
     keywords: [...(zone.keywords || []), ...(EXTRA_KEYWORDS[zone.id] || [])],
   }))
-}
-
-function mergeRecords(base, extras) {
-  const map = new Map()
-  for (const item of base) {
-    if (item?.id) map.set(item.id, item)
-  }
-  for (const item of extras) {
-    if (!item?.id) continue
-    if (item._deleted) {
-      map.delete(item.id)
-      continue
-    }
-    map.set(item.id, { ...(map.get(item.id) || {}), ...item })
-  }
-  return Array.from(map.values())
 }

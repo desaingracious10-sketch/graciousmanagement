@@ -1,4 +1,4 @@
-import db from '../data/db.json'
+import { FALLBACK_PROGRAMS, FALLBACK_ZONES } from '../lib/fallbackCatalog.js'
 
 const INDONESIAN_MONTHS = {
   januari: 1,
@@ -117,7 +117,9 @@ const EXTENDED_ZONE_KEYWORDS = {
 const ADDRESS_HINTS = ['jl.', 'jalan', 'no.', 'blok', 'rt', 'gedung', 'apartemen', 'tower', 'lt', 'lantai', 'kav', 'komplek', 'cluster', 'wisma']
 const IGNORED_NAME_PREFIXES = ['alamat', 'paket', 'program', 'mulai', 'start', 'catatan', 'note', 'no hp', 'hp', 'telepon', 'wa', 'whatsapp']
 
-export function parseOrderText(rawText) {
+export function parseOrderText(rawText, options = {}) {
+  const programs = options.programs?.length ? options.programs : FALLBACK_PROGRAMS
+  const zones = options.zones?.length ? options.zones : FALLBACK_ZONES
   const normalizedRaw = String(rawText || '').replace(/\r\n/g, '\n').trim()
   const lines = normalizedRaw
     .split('\n')
@@ -155,11 +157,11 @@ export function parseOrderText(rawText) {
   const name = parseName(lines)
   const phone = parsePhone(normalizedRaw, lines)
   const address = parseAddresses(lines)
-  const packageInfo = parsePackageInfo(lines)
+  const packageInfo = parsePackageInfo(lines, programs)
   const dates = parseDates(normalizedRaw, lines, packageInfo.durationType)
   const notes = parseNotes(lines, address.notes)
-  const zone = detectZone(address.addressPrimary)
-  const pricing = getPricing(packageInfo.programId, packageInfo.mealType, packageInfo.durationType)
+  const zone = detectZone(address.addressPrimary, zones)
+  const pricing = getPricing(packageInfo.programId, packageInfo.mealType, packageInfo.durationType, programs)
 
   result.name = name
   result.phone = phone
@@ -303,7 +305,7 @@ function extractAddressAndNotes(value) {
   }
 }
 
-function parsePackageInfo(lines) {
+function parsePackageInfo(lines, programs = FALLBACK_PROGRAMS) {
   let candidate = null
 
   for (const line of lines) {
@@ -325,7 +327,7 @@ function parsePackageInfo(lines) {
   const programId = getProgramId(lower)
   const mealType = getMealType(lower)
   const durationType = getDurationType(lower)
-  const program = db.programs.find((item) => item.id === programId) || null
+  const program = programs.find((item) => item.id === programId) || null
 
   return {
     programId,
@@ -427,13 +429,13 @@ function classifyNote(note, dietary, special) {
   }
 }
 
-function detectZone(address) {
+function detectZone(address, zones = FALLBACK_ZONES) {
   if (!address) return { zoneId: null, zoneName: null, confidence: 0 }
 
   const lower = address.toLowerCase()
   let bestMatch = null
 
-  for (const zone of db.zones) {
+  for (const zone of zones) {
     const extraKeywords = EXTENDED_ZONE_KEYWORDS[zone.id] || []
     const keywords = uniqueNonEmpty([...(zone.keywords || []), ...extraKeywords])
     const matches = keywords.filter((keyword) => lower.includes(keyword.toLowerCase()))
@@ -455,8 +457,8 @@ function detectZone(address) {
   }
 }
 
-function getPricing(programId, mealType, durationType) {
-  const program = db.programs.find((item) => item.id === programId)
+function getPricing(programId, mealType, durationType, programs = FALLBACK_PROGRAMS) {
+  const program = programs.find((item) => item.id === programId)
   if (!program || !mealType || !durationType) {
     return { priceNormal: null, pricePromo: null }
   }

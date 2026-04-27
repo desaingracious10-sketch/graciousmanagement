@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from 'react'
 import ToastViewport from '../components/ui/Toast.jsx'
@@ -108,6 +109,7 @@ export function AppProvider({ children }) {
   const [toasts, setToasts] = useState([])
   const [theme, setTheme] = useState(() => readStoredTheme())
   const [confirmState, setConfirmState] = useState(null)
+  const refreshTimeoutRef = useRef(null)
 
   // ===== THEME PERSIST =====
   useEffect(() => {
@@ -201,6 +203,41 @@ export function AppProvider({ children }) {
       cancelled = true
     }
   }, [state.currentUser])
+
+  useEffect(() => {
+    if (!SUPABASE_CONFIGURED) return undefined
+
+    function queueRefresh() {
+      window.clearTimeout(refreshTimeoutRef.current)
+      refreshTimeoutRef.current = window.setTimeout(() => {
+        loadAllData()
+      }, 180)
+    }
+
+    const subscriptions = [
+      db.subscribeToTable('orders', queueRefresh),
+      db.subscribeToTable('delivery_routes', queueRefresh),
+      db.subscribeToTable('delivery_route_items', queueRefresh),
+      db.subscribeToTable('customers', queueRefresh),
+      db.subscribeToTable('users', queueRefresh),
+      db.subscribeToTable('zones', queueRefresh),
+      db.subscribeToTable('weekly_menus', queueRefresh),
+      db.subscribeToTable('notifications', () => {
+        queueRefresh()
+        if (!state.currentUser) return
+        db.getNotifications(state.currentUser.id, state.currentUser.role)
+          .then((notifs) => {
+            dispatch({ type: 'SET_LIST', payload: { key: 'notifications', list: notifs } })
+          })
+          .catch((error) => console.error('[Gracious] notif refresh failed:', error))
+      }),
+    ].filter(Boolean)
+
+    return () => {
+      window.clearTimeout(refreshTimeoutRef.current)
+      subscriptions.forEach((channel) => db.unsubscribe(channel))
+    }
+  }, [loadAllData, state.currentUser])
 
   // ===== TOAST + CONFIRM HELPERS =====
   const api = useMemo(() => {
@@ -342,6 +379,16 @@ export function AppProvider({ children }) {
         async () => {
           const { id, ...rest } = customer
           const updated = await db.updateCustomer(id, rest)
+          dispatch({ type: 'UPSERT', payload: { key: 'customers', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
+    const regeneratePortalToken = (customerId, toast = 'Link portal customer diperbarui.') =>
+      withToast(
+        async () => {
+          const updated = await db.regenerateCustomerPortalToken(customerId)
           dispatch({ type: 'UPSERT', payload: { key: 'customers', item: updated } })
           return updated
         },
@@ -510,12 +557,41 @@ export function AppProvider({ children }) {
       }
     }
 
+    const addWeeklyMenu = (menu, toast = 'Menu mingguan berhasil disimpan.') =>
+      withToast(
+        async () => {
+          const created = await db.createWeeklyMenu(menu)
+          dispatch({ type: 'PREPEND', payload: { key: 'weeklyMenus', item: created } })
+          return created
+        },
+        { successToast: toast },
+      )
+
+    const updateWeeklyMenu = (menu, toast = 'Menu mingguan berhasil diperbarui.') =>
+      withToast(
+        async () => {
+          const { id, ...rest } = menu
+          const updated = await db.updateWeeklyMenu(id, rest)
+          dispatch({ type: 'UPSERT', payload: { key: 'weeklyMenus', item: updated } })
+          return updated
+        },
+        { successToast: toast },
+      )
+
     return {
       // ===== STATE =====
       ...state,
       booting: state.isLoading,
       // Backward-compat: rawDb is no longer used (data comes from Supabase). Keep as empty stub.
-      rawDb: { users: [], zones: [], programs: [], customers: [], orders: [], deliveryRoutes: [], deliveryRouteItems: [] },
+      rawDb: {
+        users: state.users,
+        zones: state.zones,
+        programs: state.programs,
+        customers: state.customers,
+        orders: state.orders,
+        deliveryRoutes: state.deliveryRoutes,
+        deliveryRouteItems: state.deliveryRouteItems,
+      },
       theme,
       // ===== UI HELPERS =====
       dispatch,
@@ -535,6 +611,7 @@ export function AppProvider({ children }) {
       addCustomer,
       updateCustomer,
       updateAddress,
+      regeneratePortalToken,
       addRoute,
       updateRoute,
       finalizeRoute,
@@ -547,6 +624,8 @@ export function AppProvider({ children }) {
       updateZone,
       addActivityLog,
       addSystemNotification,
+      addWeeklyMenu,
+      updateWeeklyMenu,
       refreshData: loadAllData,
     }
   }, [state, toasts, theme, loadAllData])
