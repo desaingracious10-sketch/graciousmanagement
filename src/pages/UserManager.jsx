@@ -43,8 +43,11 @@ export default function UserManager() {
   }
 
   async function handleSave(form) {
+    // Validasi username unik
     const usernameExists = users.some(
-      (user) => (user.username || '').toLowerCase() === form.username.trim().toLowerCase() && user.id !== form.id,
+      (user) =>
+        (user.username || '').toLowerCase() === form.username.trim().toLowerCase() &&
+        user.id !== form.id,
     )
     if (usernameExists) {
       showToast({ tone: 'error', message: 'Username sudah dipakai user lain.' })
@@ -65,13 +68,19 @@ export default function UserManager() {
       vehicleNumber: form.vehicleNumber || '',
     }
 
-    if (form.id) await updateUser(payload)
-    else await addUser(payload)
+    if (form.id) {
+      await updateUser(payload)
+      showToast({ tone: 'success', message: `User ${payload.name} berhasil diperbarui.` })
+    } else {
+      await addUser(payload)
+      showToast({ tone: 'success', message: `User ${payload.name} berhasil dibuat. Username: ${payload.username}` })
+    }
     setModal(null)
   }
 
   async function handleDeactivate(user) {
     await deleteUser(user.id)
+    showToast({ tone: 'success', message: `User ${user.name} berhasil dinonaktifkan.` })
   }
 
   async function handleDeleteOldFiles() {
@@ -111,7 +120,10 @@ export default function UserManager() {
             <p className="mt-2 text-sm text-slate-500">Kelola akun tim dan pantau penggunaan storage operasional.</p>
           </div>
           {activeTab === 'users' ? (
-            <Button onClick={() => setModal({ type: 'create' })} className="gap-2 rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark">
+            <Button
+              onClick={() => setModal({ type: 'create' })}
+              className="gap-2 rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark"
+            >
               <Plus size={16} />
               Tambah User
             </Button>
@@ -173,9 +185,22 @@ export default function UserManager() {
                       <td className="px-4 py-3 text-slate-700">{formatDate(user.createdAt)}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
-                          <InlineAction icon={Pencil} label="Edit" onClick={() => setModal({ type: 'edit', user })} />
-                          <InlineAction icon={KeyRound} label="Reset Password" onClick={() => setModal({ type: 'password', user })} />
-                          <InlineAction icon={UserX} label="Nonaktifkan" onClick={() => void handleDeactivate(user)} danger />
+                          <InlineAction
+                            icon={Pencil}
+                            label="Edit"
+                            onClick={() => setModal({ type: 'edit', user })}
+                          />
+                          <InlineAction
+                            icon={KeyRound}
+                            label="Reset Password"
+                            onClick={() => setModal({ type: 'password', user })}
+                          />
+                          <InlineAction
+                            icon={UserX}
+                            label="Nonaktifkan"
+                            onClick={() => void handleDeactivate(user)}
+                            danger
+                          />
                         </div>
                       </td>
                     </tr>
@@ -185,7 +210,12 @@ export default function UserManager() {
             </div>
           </Card>
         ) : (
-          <StorageManagerCard storage={storage} isLoading={isLoadingStorage} isCleaning={isCleaningStorage} onCleanup={handleDeleteOldFiles} />
+          <StorageManagerCard
+            storage={storage}
+            isLoading={isLoadingStorage}
+            isCleaning={isCleaningStorage}
+            onCleanup={handleDeleteOldFiles}
+          />
         )}
       </div>
 
@@ -206,6 +236,7 @@ export default function UserManager() {
           onClose={() => setModal(null)}
           onSave={(password) => {
             void updateUser({ ...modal.user, password })
+            showToast({ tone: 'success', message: `Password ${modal.user.name} berhasil diperbarui.` })
             setModal(null)
           }}
         />
@@ -213,6 +244,8 @@ export default function UserManager() {
     </div>
   )
 }
+
+// ─── Storage Manager ────────────────────────────────────────────────────────
 
 function StorageManagerCard({ storage, isLoading, isCleaning, onCleanup }) {
   const usageItems = storage
@@ -229,7 +262,9 @@ function StorageManagerCard({ storage, isLoading, isCleaning, onCleanup }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-sm font-semibold text-slate-900">Ringkasan Storage</div>
-            <div className="mt-1 text-sm text-slate-500">Pantau bucket file operasional dan jaga storage tetap ringan.</div>
+            <div className="mt-1 text-sm text-slate-500">
+              Pantau bucket file operasional dan jaga storage tetap ringan.
+            </div>
           </div>
           <HardDrive className="text-teal" size={20} />
         </div>
@@ -242,15 +277,22 @@ function StorageManagerCard({ storage, isLoading, isCleaning, onCleanup }) {
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <div className="text-sm text-slate-500">Total penggunaan</div>
-                  <div className="mt-2 text-3xl font-semibold text-slate-900">{storage.totalMB.toFixed(2)} MB</div>
+                  <div className="mt-2 text-3xl font-semibold text-slate-900">
+                    {storage.totalMB.toFixed(2)} MB
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-slate-500">Estimasi kuota 1 GB</div>
-                  <div className="mt-2 text-xl font-semibold text-teal-dark">{storage.usagePercent.toFixed(1)}%</div>
+                  <div className="mt-2 text-xl font-semibold text-teal-dark">
+                    {storage.usagePercent.toFixed(1)}%
+                  </div>
                 </div>
               </div>
               <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-200">
-                <div className="h-full rounded-full bg-teal" style={{ width: `${Math.min(storage.usagePercent, 100)}%` }} />
+                <div
+                  className="h-full rounded-full bg-teal"
+                  style={{ width: `${Math.min(storage.usagePercent, 100)}%` }}
+                />
               </div>
             </div>
 
@@ -271,10 +313,13 @@ function StorageManagerCard({ storage, isLoading, isCleaning, onCleanup }) {
 
       <Card className="rounded-[28px] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
         <div className="text-sm font-semibold text-slate-900">Maintenance</div>
-        <div className="mt-1 text-sm text-slate-500">Bersihkan file bukti dan menu yang sudah lewat 3 bulan.</div>
+        <div className="mt-1 text-sm text-slate-500">
+          Bersihkan file bukti dan menu yang sudah lewat 3 bulan.
+        </div>
 
         <div className="mt-6 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
-          File yang dihapus: `transfer-proofs/orders`, `menu-images/weekly`, dan `delivery-photos/items` yang lebih tua dari 90 hari.
+          File yang dihapus: <code>transfer-proofs/orders</code>, <code>menu-images/weekly</code>, dan{' '}
+          <code>delivery-photos/items</code> yang lebih tua dari 90 hari.
         </div>
 
         <button
@@ -290,16 +335,20 @@ function StorageManagerCard({ storage, isLoading, isCleaning, onCleanup }) {
   )
 }
 
+// ─── Form Modal Tambah / Edit User ──────────────────────────────────────────
+
 function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, onSave }) {
   const isEdit = !!user
+
   const [form, setForm] = useState({
     id: user?.id || '',
     name: user?.name || '',
     username: user?.username || '',
     role: user?.role || 'sales',
     phone: user?.phone || '',
-    password: user?.password || generatePassword(),
-    sendInfo: false,
+    // Saat edit: kosongkan password agar admin sadar harus isi ulang jika mau ganti
+    password: isEdit ? '' : '',
+    confirmPassword: '',
     isActive: user?.isActive ?? true,
     createdAt: user?.createdAt || '',
     primaryZoneId: user?.primaryZoneId || '',
@@ -307,54 +356,201 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
     vehicleNumber: user?.vehicleNumber || '',
   })
 
+  const [errors, setErrors] = useState({})
+
   const hasActiveData = Boolean(
     user &&
       ((user.role === 'sales' && orders.some((order) => order.createdBy === user.id)) ||
         ((user.role === 'address_admin' || user.role === 'driver') &&
-          deliveryRoutes.some((route) => route.createdBy === user.id || route.driverId === user.id))),
+          deliveryRoutes.some(
+            (route) => route.createdBy === user.id || route.driverId === user.id,
+          ))),
   )
 
   function patch(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
+    // Hapus error field ini saat user mulai mengetik
+    if (errors[field]) {
+      setErrors((current) => ({ ...current, [field]: '' }))
+    }
   }
 
+  function validate() {
+    const newErrors = {}
+
+    if (!form.name.trim()) {
+      newErrors.name = 'Nama lengkap wajib diisi'
+    }
+
+    if (!form.username.trim()) {
+      newErrors.username = 'Username wajib diisi'
+    } else if (form.username.trim().length < 4) {
+      newErrors.username = 'Username minimal 4 karakter'
+    } else if (/\s/.test(form.username)) {
+      newErrors.username = 'Username tidak boleh mengandung spasi'
+    }
+
+    // Password wajib diisi saat tambah user baru
+    // Saat edit: hanya validasi jika admin mengisi password (berarti mau ganti)
+    if (!isEdit) {
+      // Tambah user baru — password WAJIB
+      if (!form.password) {
+        newErrors.password = 'Password wajib diisi'
+      } else if (form.password.length < 6) {
+        newErrors.password = 'Password minimal 6 karakter'
+      }
+      if (!form.confirmPassword) {
+        newErrors.confirmPassword = 'Konfirmasi password wajib diisi'
+      } else if (form.password !== form.confirmPassword) {
+        newErrors.confirmPassword = 'Konfirmasi password tidak sama'
+      }
+    } else {
+      // Edit user — password opsional, tapi jika diisi harus valid
+      if (form.password) {
+        if (form.password.length < 6) {
+          newErrors.password = 'Password minimal 6 karakter'
+        }
+        if (!form.confirmPassword) {
+          newErrors.confirmPassword = 'Konfirmasi password wajib diisi jika ganti password'
+        } else if (form.password !== form.confirmPassword) {
+          newErrors.confirmPassword = 'Konfirmasi password tidak sama'
+        }
+      }
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  function handleSubmit() {
+    if (!validate()) return
+
+    // Saat edit dan password dikosongkan = tidak ganti password
+    const finalForm = {
+      ...form,
+      // Jika edit dan password kosong, pakai password lama
+      password: isEdit && !form.password ? user.password : form.password,
+    }
+
+    onSave(finalForm)
+  }
+
+  const isFormValid =
+    form.name.trim() &&
+    form.username.trim().length >= 4 &&
+    !isEdit
+      ? form.password.length >= 6 && form.password === form.confirmPassword
+      : true
+
   return (
-    <ModalShell title={isEdit ? 'Edit User' : 'Tambah User'} subtitle="Lengkapi data akun untuk tim Gracious." onClose={onClose}>
+    <ModalShell
+      title={isEdit ? 'Edit User' : 'Tambah User'}
+      subtitle="Lengkapi data akun untuk tim Gracious."
+      onClose={onClose}
+    >
       <div className="grid gap-4 md:grid-cols-2">
+        {/* Nama Lengkap */}
         <Field label="Nama Lengkap" required>
-          <Input value={form.name} onChange={(event) => patch('name', event.target.value)} />
+          <Input
+            value={form.name}
+            onChange={(event) => patch('name', event.target.value)}
+            className={errors.name ? 'border-rose-400 focus:ring-rose-300' : ''}
+          />
+          {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name}</p>}
         </Field>
+
+        {/* Username */}
         <Field label="Username" required>
-          <Input value={form.username} onChange={(event) => patch('username', event.target.value)} />
+          <Input
+            value={form.username}
+            onChange={(event) => patch('username', event.target.value)}
+            placeholder="contoh: sarah.sales"
+            className={errors.username ? 'border-rose-400 focus:ring-rose-300' : ''}
+          />
+          {errors.username
+            ? <p className="mt-1 text-xs text-rose-600">{errors.username}</p>
+            : <p className="mt-1 text-xs text-slate-400">Lowercase, tanpa spasi. Tidak bisa diubah setelah disimpan.</p>
+          }
         </Field>
+
+        {/* Role */}
         <Field label="Role" required>
-          <Select value={form.role} onChange={(event) => patch('role', event.target.value)} disabled={hasActiveData}>
+          <Select
+            value={form.role}
+            onChange={(event) => patch('role', event.target.value)}
+            disabled={hasActiveData}
+          >
             {ROLE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value} disabled={option.value === 'superadmin' || !hasSuperadmin && option.value === 'superadmin'}>
+              <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </Select>
+          {hasActiveData && (
+            <p className="mt-1 text-xs text-amber-600">
+              Role tidak bisa diubah karena user ini sudah memiliki data aktif.
+            </p>
+          )}
         </Field>
-        <Field label="No HP">
-          <Input value={form.phone} onChange={(event) => patch('phone', event.target.value)} />
-        </Field>
-        <Field label="Password Awal">
-          <Input value={form.password} onChange={(event) => patch('password', event.target.value)} />
-        </Field>
-        <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
-          <input type="checkbox" checked={form.sendInfo} onChange={(event) => patch('sendInfo', event.target.checked)} />
-          Kirim info akun via manual copy
-        </label>
-      </div>
 
-      {hasActiveData ? <div className="mt-4 text-sm text-amber-700">Role tidak bisa diubah karena user ini sudah memiliki data aktif.</div> : null}
+        {/* No HP */}
+        <Field label="No HP">
+          <Input
+            value={form.phone}
+            onChange={(event) => patch('phone', event.target.value)}
+            placeholder="08xxxxxxxxxx"
+          />
+        </Field>
+
+        {/* Password */}
+        <Field label={isEdit ? 'Password Baru (opsional)' : 'Password Awal *'} required={!isEdit}>
+          <Input
+            type="password"
+            value={form.password}
+            onChange={(event) => patch('password', event.target.value)}
+            placeholder={isEdit ? 'Kosongkan jika tidak ingin ganti' : 'Minimal 6 karakter'}
+            className={errors.password ? 'border-rose-400 focus:ring-rose-300' : ''}
+          />
+          {errors.password
+            ? <p className="mt-1 text-xs text-rose-600">{errors.password}</p>
+            : !isEdit && <p className="mt-1 text-xs text-slate-400">Minimal 6 karakter.</p>
+          }
+        </Field>
+
+        {/* Konfirmasi Password */}
+        <Field
+          label="Konfirmasi Password *"
+          required={!isEdit || !!form.password}
+        >
+          <Input
+            type="password"
+            value={form.confirmPassword}
+            onChange={(event) => patch('confirmPassword', event.target.value)}
+            placeholder="Ulangi password"
+            className={errors.confirmPassword ? 'border-rose-400 focus:ring-rose-300' : ''}
+            disabled={isEdit && !form.password}
+          />
+          {errors.confirmPassword && (
+            <p className="mt-1 text-xs text-rose-600">{errors.confirmPassword}</p>
+          )}
+          {isEdit && !form.password && (
+            <p className="mt-1 text-xs text-slate-400">Isi password baru terlebih dahulu.</p>
+          )}
+          {/* Indikator cocok */}
+          {form.confirmPassword && form.password && !errors.confirmPassword && form.password === form.confirmPassword && (
+            <p className="mt-1 text-xs text-emerald-600">✓ Password cocok</p>
+          )}
+        </Field>
+      </div>
 
       <div className="mt-6 flex justify-end gap-3">
         <Button variant="secondary" onClick={onClose} className="rounded-2xl px-4 py-3">
           Batal
         </Button>
-        <Button onClick={() => onSave(form)} className="rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark">
+        <Button
+          onClick={handleSubmit}
+          className="rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark"
+        >
           Simpan User
         </Button>
       </div>
@@ -362,31 +558,90 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
   )
 }
 
+// ─── Modal Reset Password ────────────────────────────────────────────────────
+
 function PasswordModal({ user, onClose, onSave }) {
-  const [password, setPassword] = useState(generatePassword())
-  const [confirm, setConfirm] = useState(generatePassword())
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [errors, setErrors] = useState({})
+
+  function handleSave() {
+    const newErrors = {}
+
+    if (!password) {
+      newErrors.password = 'Password baru wajib diisi'
+    } else if (password.length < 6) {
+      newErrors.password = 'Password minimal 6 karakter'
+    }
+
+    if (!confirm) {
+      newErrors.confirm = 'Konfirmasi password wajib diisi'
+    } else if (password !== confirm) {
+      newErrors.confirm = 'Konfirmasi password tidak sama'
+    }
+
+    setErrors(newErrors)
+    if (Object.keys(newErrors).length > 0) return
+
+    onSave(password)
+  }
 
   return (
-    <ModalShell title="Reset Password" subtitle={`Atur password baru untuk ${user.name}.`} onClose={onClose}>
+    <ModalShell
+      title="Reset Password"
+      subtitle={`Atur password baru untuk ${user.name}.`}
+      onClose={onClose}
+    >
       <div className="grid gap-4">
-        <Field label="Password Baru">
-          <Input value={password} onChange={(event) => setPassword(event.target.value)} />
+        <Field label="Password Baru *" required>
+          <Input
+            type="password"
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              if (errors.password) setErrors((e) => ({ ...e, password: '' }))
+            }}
+            placeholder="Minimal 6 karakter"
+            className={errors.password ? 'border-rose-400' : ''}
+          />
+          {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password}</p>}
         </Field>
-        <Field label="Konfirmasi Password">
-          <Input value={confirm} onChange={(event) => setConfirm(event.target.value)} />
+
+        <Field label="Konfirmasi Password *" required>
+          <Input
+            type="password"
+            value={confirm}
+            onChange={(event) => {
+              setConfirm(event.target.value)
+              if (errors.confirm) setErrors((e) => ({ ...e, confirm: '' }))
+            }}
+            placeholder="Ulangi password baru"
+            className={errors.confirm ? 'border-rose-400' : ''}
+          />
+          {errors.confirm && <p className="mt-1 text-xs text-rose-600">{errors.confirm}</p>}
+          {/* Indikator cocok */}
+          {confirm && password && !errors.confirm && password === confirm && (
+            <p className="mt-1 text-xs text-emerald-600">✓ Password cocok</p>
+          )}
         </Field>
       </div>
+
       <div className="mt-6 flex justify-end gap-3">
         <Button variant="secondary" onClick={onClose} className="rounded-2xl px-4 py-3">
           Batal
         </Button>
-        <Button onClick={() => password === confirm && onSave(password)} className="rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark">
+        <Button
+          onClick={handleSave}
+          className="rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark"
+        >
           Simpan Password Baru
         </Button>
       </div>
     </ModalShell>
   )
 }
+
+// ─── Shared Components ───────────────────────────────────────────────────────
 
 function ModalShell({ title, subtitle, children, onClose }) {
   return (
@@ -398,14 +653,25 @@ function ModalShell({ title, subtitle, children, onClose }) {
         </div>
         {children}
       </div>
-      <button type="button" onClick={onClose} className="absolute inset-0 -z-10 h-full w-full" aria-label="Tutup modal" />
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute inset-0 -z-10 h-full w-full"
+        aria-label="Tutup modal"
+      />
     </div>
   )
 }
 
 function InlineAction({ icon: Icon, label, onClick, danger = false }) {
   return (
-    <button type="button" onClick={onClick} className={`inline-flex items-center gap-1 rounded-xl px-2 py-1 text-xs font-medium ${danger ? 'text-rose-700 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-100'}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 rounded-xl px-2 py-1 text-xs font-medium ${
+        danger ? 'text-rose-700 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-100'
+      }`}
+    >
       <Icon size={13} />
       {label}
     </button>
@@ -420,9 +686,9 @@ function RoleBadge({ role }) {
     driver: { cls: 'bg-emerald-100 text-emerald-700', label: 'Driver' },
   }
   const current = map[role] || { cls: 'bg-slate-100 text-slate-600', label: role }
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${current.cls}`}>{current.label}</span>
-}
-
-function generatePassword() {
-  return `gracious${Math.random().toString(36).slice(2, 7)}`
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${current.cls}`}>
+      {current.label}
+    </span>
+  )
 }
