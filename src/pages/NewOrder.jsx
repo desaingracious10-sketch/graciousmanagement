@@ -358,7 +358,6 @@ export default function NewOrder() {
         dietaryNotes: source.dietaryNotes || '',
         isActive: true,
         createdAt: new Date().toISOString(),
-        pendingRouteAssignment: true,
       }
       await addCustomer(customer, null)
     }
@@ -399,13 +398,11 @@ export default function NewOrder() {
         paymentMethod: normalizePaymentMethod(payment.method),
         orderSource: normalizeOrderSource(payment.source),
         createdAt: new Date().toISOString(),
-        createdBy: currentUser?.id || 'u2',
+        createdBy: currentUser?.id || null,
         paymentProof: uploadedProof,
         priceNormal: source.priceNormal,
         pricePromo: source.pricePromo,
         zoneId: source.suggestedZoneId || customer.zoneId || null,
-        adminNotification: `${allOrders.length + 1} pesanan menunggu verifikasi`,
-        routeAssignmentStatus: 'pending_assign',
       }
 
       await addOrder(newOrder, null)
