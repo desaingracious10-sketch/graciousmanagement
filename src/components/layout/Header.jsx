@@ -177,10 +177,10 @@ export default function Header({ currentUser, notifications, onMenuClick }) {
 }
 
 const TYPE_STYLES = {
-  urgent: { dot: 'bg-rose-500', icon: '🔴', accent: 'text-rose-700 dark:text-rose-300' },
-  warning: { dot: 'bg-amber-500', icon: '🟡', accent: 'text-amber-700 dark:text-amber-300' },
-  info: { dot: 'bg-sky-500', icon: '🔵', accent: 'text-sky-700 dark:text-sky-300' },
-  success: { dot: 'bg-emerald-500', icon: '🟢', accent: 'text-emerald-700 dark:text-emerald-300' },
+  urgent:  { dot: 'bg-rose-500',    icon: '🔴', accent: 'text-rose-700 dark:text-rose-300',    badge: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',    border: 'border-rose-200/60 bg-rose-50/60 dark:border-rose-500/20 dark:bg-rose-500/10' },
+  warning: { dot: 'bg-amber-500',   icon: '🟡', accent: 'text-amber-700 dark:text-amber-300',  badge: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',  border: 'border-amber-200/60 bg-amber-50/60 dark:border-amber-500/20 dark:bg-amber-500/10' },
+  info:    { dot: 'bg-sky-500',     icon: '🔵', accent: 'text-sky-700 dark:text-sky-300',      badge: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',          border: 'border-sky-200/60 bg-sky-50/60 dark:border-sky-500/20 dark:bg-sky-500/10' },
+  success: { dot: 'bg-emerald-500', icon: '🟢', accent: 'text-emerald-700 dark:text-emerald-300', badge: 'bg-emerald-100 text-emerald-700', border: 'border-emerald-200/60 bg-emerald-50/60 dark:border-emerald-500/20 dark:bg-emerald-500/10' },
 }
 
 function NotificationPanel({ notifications, onItemClick, onMarkAllRead }) {
@@ -189,59 +189,88 @@ function NotificationPanel({ notifications, onItemClick, onMarkAllRead }) {
 
   return (
     <div
-      className="absolute right-0 z-30 mt-3 w-[min(360px,calc(100vw-2rem))] origin-top-right animate-scale-in overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)] dark:border-slate-700 dark:bg-slate-800"
+      className="absolute right-0 z-30 mt-3 w-[min(400px,calc(100vw-2rem))] origin-top-right animate-scale-in overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)] dark:border-slate-700 dark:bg-slate-800"
       role="dialog"
       aria-label="Notifikasi"
     >
+      {/* Header */}
       <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-          <Bell size={16} className="text-teal" /> Notifikasi
+          <Bell size={16} className="text-teal" />
+          Notifikasi
+          {hasUnread && (
+            <span className="inline-flex items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              {notifications.filter((n) => !n.isRead).length}
+            </span>
+          )}
         </div>
         {hasUnread ? (
           <button
             type="button"
             onClick={onMarkAllRead}
-            className="text-xs font-semibold text-teal hover:text-teal-dark"
+            className="text-xs font-semibold text-teal transition hover:text-teal-dark"
           >
             Tandai Semua Baca
           </button>
         ) : null}
       </div>
 
-      <div className="max-h-[60vh] overflow-y-auto p-2">
+      {/* List */}
+      <div className="max-h-[70vh] overflow-y-auto p-2">
         {hasAny ? (
-          <ul className="space-y-2">
-            {notifications.slice(0, 8).map((item) => {
+          <ul className="space-y-1.5">
+            {notifications.slice(0, 10).map((item) => {
               const style = TYPE_STYLES[item.type] || TYPE_STYLES.info
               return (
                 <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => onItemClick(item)}
-                    className={`flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition active:scale-[0.99] ${
+                  <div
+                    className={`rounded-2xl border px-3 py-3 transition ${
                       item.isRead
-                        ? 'border-slate-100 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:bg-slate-800'
-                        : 'border-teal/20 bg-teal/5 shadow-[0_8px_24px_rgba(13,148,136,0.08)] dark:border-teal/30 dark:bg-teal/10'
+                        ? 'border-slate-100 bg-white dark:border-slate-700 dark:bg-slate-900/40'
+                        : style.border
                     }`}
                   >
-                    <span className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${item.isRead ? 'bg-slate-300' : style.dot}`} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{style.icon}</span>
-                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          {item.title}
-                        </span>
-                      </div>
-                      {item.message ? (
-                        <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{item.message}</div>
-                      ) : null}
-                      {item.linkLabel ? (
-                        <div className={`mt-2 inline-flex items-center gap-1 text-xs font-semibold ${style.accent}`}>
-                          {item.linkLabel} <ArrowRight size={12} />
+                    {/* Top row: dot + title + count badge */}
+                    <div className="flex items-start gap-2.5">
+                      <span
+                        className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${
+                          item.isRead ? 'bg-slate-300 dark:bg-slate-600' : style.dot
+                        }`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm">{style.icon}</span>
+                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug">
+                            {item.title}
+                          </span>
+                          {item.count > 1 && (
+                            <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-bold ${style.badge}`}>
+                              {item.count}
+                            </span>
+                          )}
                         </div>
-                      ) : null}
+                        {item.message ? (
+                          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                            {item.message}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
-                  </button>
+
+                    {/* Action button — always visible, prominent */}
+                    {item.link ? (
+                      <div className="mt-2.5 pl-4">
+                        <button
+                          type="button"
+                          onClick={() => onItemClick(item)}
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition hover:opacity-80 active:scale-95 ${style.badge}`}
+                        >
+                          {item.linkLabel || 'Lihat'}
+                          <ArrowRight size={11} />
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </li>
               )
             })}
@@ -252,7 +281,7 @@ function NotificationPanel({ notifications, onItemClick, onMarkAllRead }) {
               <BellOff size={20} />
             </div>
             <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Tidak ada notifikasi lain
+              Tidak ada notifikasi
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400">
               Kamu sudah handle semuanya. Mantap! 👌
@@ -260,6 +289,15 @@ function NotificationPanel({ notifications, onItemClick, onMarkAllRead }) {
           </div>
         )}
       </div>
+
+      {/* Footer */}
+      {hasAny && (
+        <div className="border-t border-slate-100 px-4 py-2.5 dark:border-slate-700">
+          <p className="text-center text-xs text-slate-400 dark:text-slate-500">
+            Update otomatis setiap 30 detik
+          </p>
+        </div>
+      )}
     </div>
   )
 }

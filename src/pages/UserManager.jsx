@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, ChevronRight, HardDrive, KeyRound, Pencil, Plus, Trash2, UserX } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { BarChart3, CheckCircle, ChevronRight, ClipboardCopy, HardDrive, KeyRound, Pencil, Plus, UserX } from 'lucide-react'
 import { useApp } from '../context/AppContext.jsx'
 import { deleteFilesOlderThan, getStorageUsage } from '../lib/imageUpload.js'
 import { Badge, Button, Card, Field, Input, Select, formatDate } from '../components/ui.jsx'
@@ -10,6 +10,13 @@ const ROLE_OPTIONS = [
   { value: 'driver', label: 'Driver' },
 ]
 
+const ROLE_LABEL = {
+  superadmin: 'Admin Utama',
+  sales: 'Admin Sales',
+  address_admin: 'Admin Alamat',
+  driver: 'Driver',
+}
+
 const TABS = [
   { id: 'users', label: 'Data User', icon: BarChart3 },
   { id: 'storage', label: 'Storage Manager', icon: HardDrive },
@@ -19,6 +26,7 @@ export default function UserManager() {
   const { users, orders, deliveryRoutes, addUser, updateUser, deleteUser, showToast } = useApp()
   const [activeTab, setActiveTab] = useState('users')
   const [modal, setModal] = useState(null)
+  const [successInfo, setSuccessInfo] = useState(null)
   const [storage, setStorage] = useState(null)
   const [isLoadingStorage, setIsLoadingStorage] = useState(false)
   const [isCleaningStorage, setIsCleaningStorage] = useState(false)
@@ -54,28 +62,45 @@ export default function UserManager() {
       return
     }
 
-    const payload = {
-      id: form.id || `u-${Date.now()}`,
-      name: form.name.trim(),
-      username: form.username.trim().toLowerCase(),
-      password: form.password,
-      role: form.role,
-      phone: form.phone.trim(),
-      isActive: form.isActive,
-      createdAt: form.createdAt || new Date().toISOString(),
-      primaryZoneId: form.primaryZoneId || '',
-      vehicleType: form.vehicleType || '',
-      vehicleNumber: form.vehicleNumber || '',
-    }
+    const isNew = !form.id
 
-    if (form.id) {
+    // For new users: don't send id (let Supabase generate UUID)
+    // For existing users: include id for update
+    const payload = isNew
+      ? {
+          name: form.name.trim(),
+          username: form.username.trim().toLowerCase(),
+          password: form.password,
+          role: form.role,
+          phone: form.phone.trim(),
+          isActive: true,
+        }
+      : {
+          id: form.id,
+          name: form.name.trim(),
+          username: form.username.trim().toLowerCase(),
+          password: form.password,
+          role: form.role,
+          phone: form.phone.trim(),
+          isActive: form.isActive,
+          createdAt: form.createdAt,
+        }
+
+    if (!isNew) {
       await updateUser(payload)
       showToast({ tone: 'success', message: `User ${payload.name} berhasil diperbarui.` })
+      setModal(null)
     } else {
       await addUser(payload)
-      showToast({ tone: 'success', message: `User ${payload.name} berhasil dibuat. Username: ${payload.username}` })
+      setModal(null)
+      // Show success modal with credentials
+      setSuccessInfo({
+        name: form.name.trim(),
+        username: form.username.trim().toLowerCase(),
+        password: form.password,
+        role: form.role,
+      })
     }
-    setModal(null)
   }
 
   async function handleDeactivate(user) {
@@ -241,6 +266,85 @@ export default function UserManager() {
           }}
         />
       ) : null}
+
+      {successInfo ? (
+        <SuccessModal
+          info={successInfo}
+          roleLabel={ROLE_LABEL[successInfo.role] || successInfo.role}
+          onClose={() => setSuccessInfo(null)}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+// ─── Success Modal ───────────────────────────────────────────────────────────
+
+function SuccessModal({ info, roleLabel, onClose }) {
+  const [copied, setCopied] = useState(false)
+
+  const accountText = `Nama: ${info.name}\nUsername: ${info.username}\nPassword: ${info.password}\nRole: ${roleLabel}`
+
+  function handleCopy() {
+    navigator.clipboard.writeText(accountText).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6">
+      <div className="w-full max-w-md rounded-[32px] bg-white p-6 shadow-2xl">
+        <div className="mb-5 flex items-center gap-3">
+          <CheckCircle className="text-emerald-500" size={28} />
+          <div>
+            <div className="text-xl font-semibold text-slate-900">User Berhasil Dibuat!</div>
+            <div className="mt-0.5 text-sm text-slate-500">Simpan informasi ini dan berikan ke yang bersangkutan.</div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-sm">
+          <div className="space-y-2">
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500">Nama</span>
+              <span className="font-semibold text-slate-900">{info.name}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500">Username</span>
+              <span className="font-semibold text-slate-900">@{info.username}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500">Password</span>
+              <span className="font-semibold text-teal-dark">{info.password}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500">Role</span>
+              <span className="font-semibold text-slate-900">{roleLabel}</span>
+            </div>
+          </div>
+        </div>
+
+        <p className="mt-3 text-xs text-amber-700">
+          ⚠️ Password hanya ditampilkan sekali ini. Pastikan sudah dicatat sebelum menutup.
+        </p>
+
+        <div className="mt-5 flex gap-3">
+          <Button
+            onClick={handleCopy}
+            variant="secondary"
+            className="flex-1 gap-2 rounded-2xl px-4 py-3"
+          >
+            <ClipboardCopy size={15} />
+            {copied ? 'Tersalin!' : 'Salin Info Akun'}
+          </Button>
+          <Button
+            onClick={onClose}
+            className="flex-1 rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark"
+          >
+            Tutup
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -346,14 +450,10 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
     username: user?.username || '',
     role: user?.role || 'sales',
     phone: user?.phone || '',
-    // Saat edit: kosongkan password agar admin sadar harus isi ulang jika mau ganti
-    password: isEdit ? '' : '',
+    password: '',
     confirmPassword: '',
     isActive: user?.isActive ?? true,
     createdAt: user?.createdAt || '',
-    primaryZoneId: user?.primaryZoneId || '',
-    vehicleType: user?.vehicleType || '',
-    vehicleNumber: user?.vehicleNumber || '',
   })
 
   const [errors, setErrors] = useState({})
@@ -369,7 +469,6 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
 
   function patch(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
-    // Hapus error field ini saat user mulai mengetik
     if (errors[field]) {
       setErrors((current) => ({ ...current, [field]: '' }))
     }
@@ -390,10 +489,7 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
       newErrors.username = 'Username tidak boleh mengandung spasi'
     }
 
-    // Password wajib diisi saat tambah user baru
-    // Saat edit: hanya validasi jika admin mengisi password (berarti mau ganti)
     if (!isEdit) {
-      // Tambah user baru — password WAJIB
       if (!form.password) {
         newErrors.password = 'Password wajib diisi'
       } else if (form.password.length < 6) {
@@ -405,7 +501,6 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
         newErrors.confirmPassword = 'Konfirmasi password tidak sama'
       }
     } else {
-      // Edit user — password opsional, tapi jika diisi harus valid
       if (form.password) {
         if (form.password.length < 6) {
           newErrors.password = 'Password minimal 6 karakter'
@@ -425,22 +520,22 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
   function handleSubmit() {
     if (!validate()) return
 
-    // Saat edit dan password dikosongkan = tidak ganti password
     const finalForm = {
       ...form,
-      // Jika edit dan password kosong, pakai password lama
       password: isEdit && !form.password ? user.password : form.password,
     }
 
     onSave(finalForm)
   }
 
-  const isFormValid =
+  const isFormValid = Boolean(
     form.name.trim() &&
     form.username.trim().length >= 4 &&
-    !isEdit
+    form.role &&
+    (!isEdit
       ? form.password.length >= 6 && form.password === form.confirmPassword
-      : true
+      : true)
+  )
 
   return (
     <ModalShell
@@ -465,10 +560,13 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
             value={form.username}
             onChange={(event) => patch('username', event.target.value)}
             placeholder="contoh: sarah.sales"
+            disabled={isEdit}
             className={errors.username ? 'border-rose-400 focus:ring-rose-300' : ''}
           />
           {errors.username
             ? <p className="mt-1 text-xs text-rose-600">{errors.username}</p>
+            : isEdit
+            ? <p className="mt-1 text-xs text-slate-400">Username tidak bisa diubah.</p>
             : <p className="mt-1 text-xs text-slate-400">Lowercase, tanpa spasi. Tidak bisa diubah setelah disimpan.</p>
           }
         </Field>
@@ -478,7 +576,7 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
           <Select
             value={form.role}
             onChange={(event) => patch('role', event.target.value)}
-            disabled={hasActiveData}
+            disabled={isEdit && hasActiveData}
           >
             {ROLE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -486,7 +584,7 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
               </option>
             ))}
           </Select>
-          {hasActiveData && (
+          {isEdit && hasActiveData && (
             <p className="mt-1 text-xs text-amber-600">
               Role tidak bisa diubah karena user ini sudah memiliki data aktif.
             </p>
@@ -519,7 +617,7 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
 
         {/* Konfirmasi Password */}
         <Field
-          label="Konfirmasi Password *"
+          label={isEdit ? 'Konfirmasi Password Baru' : 'Konfirmasi Password *'}
           required={!isEdit || !!form.password}
         >
           <Input
@@ -536,7 +634,6 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
           {isEdit && !form.password && (
             <p className="mt-1 text-xs text-slate-400">Isi password baru terlebih dahulu.</p>
           )}
-          {/* Indikator cocok */}
           {form.confirmPassword && form.password && !errors.confirmPassword && form.password === form.confirmPassword && (
             <p className="mt-1 text-xs text-emerald-600">✓ Password cocok</p>
           )}
@@ -549,7 +646,8 @@ function UserFormModal({ user, hasSuperadmin, orders, deliveryRoutes, onClose, o
         </Button>
         <Button
           onClick={handleSubmit}
-          className="rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark"
+          disabled={!isFormValid}
+          className="rounded-2xl bg-teal px-4 py-3 hover:bg-teal-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
           Simpan User
         </Button>
@@ -619,7 +717,6 @@ function PasswordModal({ user, onClose, onSave }) {
             className={errors.confirm ? 'border-rose-400' : ''}
           />
           {errors.confirm && <p className="mt-1 text-xs text-rose-600">{errors.confirm}</p>}
-          {/* Indikator cocok */}
           {confirm && password && !errors.confirm && password === confirm && (
             <p className="mt-1 text-xs text-emerald-600">✓ Password cocok</p>
           )}
