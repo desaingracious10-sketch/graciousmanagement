@@ -70,7 +70,7 @@ export default function OrderDetail() {
       ...order,
       paymentStatus: 'verified',
       status: order.status === 'draft' ? 'active' : order.status,
-      verifiedBy: currentUser?.id || 'u1',
+      verifiedBy: currentUser?.id || null,
       verifiedAt: new Date().toISOString(),
     })
   }
@@ -79,7 +79,7 @@ export default function OrderDetail() {
     await updateOrder({
       ...order,
       paymentStatus: 'rejected',
-      verifiedBy: currentUser?.id || 'u1',
+      verifiedBy: currentUser?.id || null,
       verifiedAt: new Date().toISOString(),
     }, 'Status pembayaran berhasil ditolak.')
   }

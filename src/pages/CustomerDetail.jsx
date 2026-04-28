@@ -125,7 +125,7 @@ export default function CustomerDetail() {
         reason: payload.reason,
         effectiveDate: payload.effectiveDate,
         additionalNotes: payload.additionalNotes,
-        changedBy: currentUser?.id || 'u1',
+        changedBy: currentUser?.id || null,
         createdAt: new Date().toISOString(),
       },
     ])

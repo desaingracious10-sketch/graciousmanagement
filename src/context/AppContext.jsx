@@ -84,11 +84,22 @@ function appReducer(state, action) {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 function readStoredUser() {
   if (typeof window === 'undefined') return null
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.currentUser)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    // Sesi lama (pre-migrasi Supabase) menyimpan id seed seperti "u1" yang
+    // sekarang ditolak Postgres karena kolom created_by/verified_by bertipe UUID.
+    // Buang sesi seperti itu — force user login ulang untuk dapat UUID asli dari DB.
+    if (!parsed?.id || !UUID_RE.test(String(parsed.id))) {
+      localStorage.removeItem(STORAGE_KEYS.currentUser)
+      return null
+    }
+    return parsed
   } catch {
     return null
   }
