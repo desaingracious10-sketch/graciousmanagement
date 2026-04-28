@@ -237,6 +237,44 @@ export async function updateCustomer(id, updates) {
   return fromDb(data)
 }
 
+export async function getCustomerByToken(token) {
+  ensureClient()
+  if (!token) return null
+  const { data, error } = await supabase
+    .from('customers')
+    .select(`
+      *,
+      zone:zones(id, name, color_code),
+      orders(
+        id, order_number, program_id, meal_type, duration_type,
+        start_date, end_date, status, payment_status,
+        dietary_notes, special_notes,
+        program:programs(id, name, category)
+      )
+    `)
+    .eq('portal_token', token)
+    .or('is_deleted.is.null,is_deleted.eq.false')
+    .maybeSingle()
+  if (error) {
+    console.warn('[getCustomerByToken]', error.message)
+    return null
+  }
+  return data ? fromDb(data) : null
+}
+
+export async function getUpcomingBirthdays(limit = 50) {
+  if (!SUPABASE_CONFIGURED || !supabase) return []
+  const { data, error } = await supabase
+    .from('upcoming_birthdays')
+    .select('*')
+    .limit(limit)
+  if (error) {
+    console.warn('[getUpcomingBirthdays]', error.message)
+    return []
+  }
+  return fromDb(data || [])
+}
+
 export async function regenerateCustomerPortalToken(customerId) {
   ensureClient()
   const portalToken = generatePortalToken(customerId)
@@ -505,8 +543,39 @@ export async function updateDeliveryRoute(id, updates) {
   return fromDb(data)
 }
 
-export async function finalizeRoute(id) {
-  return updateDeliveryRoute(id, { status: 'finalized' })
+export async function finalizeRoute(id, currentUserId, extraUpdates = {}) {
+  ensureClient()
+  const { data, error } = await supabase
+    .from('delivery_routes')
+    .update({ ...toDb(extraUpdates || {}), status: 'finalized' })
+    .eq('id', id)
+    .select('*, driver:drivers(id, name)')
+    .single()
+  if (error) throw error
+
+  // Notifikasi ke driver bila ditugaskan
+  if (data.driver_id) {
+    try {
+      await supabase.from('notifications').insert({
+        user_id: data.driver_id,
+        type: 'info',
+        category: 'route',
+        title: 'Rute Kamu Sudah Siap!',
+        message: `${data.route_label || 'Rute'} sudah difinalize. Siap untuk pengiriman.`,
+        link: '/dashboard/driver',
+        link_label: 'Lihat Rute',
+        entity_ids: [id],
+        is_read: false,
+      })
+    } catch (e) {
+      console.warn('[finalizeRoute] notify failed:', e?.message)
+    }
+  }
+
+  await addActivityLog(currentUserId, 'FINALIZE_ROUTE', 'route', id, {
+    label: data.route_label,
+  })
+  return fromDb(data)
 }
 
 // ============ DELIVERY ROUTE ITEMS ============
@@ -712,6 +781,40 @@ export async function updateWeeklyMenu(id, updates) {
   return fromDb(data)
 }
 
+export async function publishWeeklyMenu(id, currentUserId) {
+  ensureClient()
+  // Ambil variant dari menu target
+  const { data: target, error: getErr } = await supabase
+    .from('weekly_menus')
+    .select('variant, week_label')
+    .eq('id', id)
+    .single()
+  if (getErr) throw getErr
+
+  // Nonaktifkan menu lain dengan variant sama
+  if (target?.variant) {
+    await supabase
+      .from('weekly_menus')
+      .update({ is_active: false })
+      .eq('variant', target.variant)
+      .neq('id', id)
+  }
+
+  // Aktifkan target
+  const { data, error } = await supabase
+    .from('weekly_menus')
+    .update({ is_active: true })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+
+  await addActivityLog(currentUserId, 'PUBLISH_MENU', 'weekly_menu', id, {
+    label: target?.week_label,
+  })
+  return fromDb(data)
+}
+
 // ============ DRIVERS ============
 export async function getDrivers() {
   ensureClient()
@@ -727,6 +830,19 @@ export async function createDriver(driverData, currentUserId) {
   ensureClient()
   const payload = toDb(stripManagedTimestamps(driverData))
   if (currentUserId) payload.created_by = currentUserId
+
+  // Cek username unik lintas tabel drivers + users (login pakai dua tabel ini)
+  if (payload.username) {
+    const uname = String(payload.username).toLowerCase()
+    payload.username = uname
+    const [{ data: existDriver }, { data: existUser }] = await Promise.all([
+      supabase.from('drivers').select('id').eq('username', uname).maybeSingle(),
+      supabase.from('users').select('id').eq('username', uname).maybeSingle(),
+    ])
+    if (existDriver) throw new Error('Username driver sudah dipakai. Pilih username lain.')
+    if (existUser) throw new Error('Username sudah dipakai oleh user lain.')
+  }
+
   const { data, error } = await supabase.from('drivers').insert(payload).select().single()
   if (error) throw error
   await addActivityLog(currentUserId, 'CREATE_DRIVER', 'driver', data.id, { name: data.name })

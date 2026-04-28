@@ -40,9 +40,13 @@ export default function OrderList() {
 
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase()
+    const isSalesScope = currentUser?.role === 'sales'
 
     return orders
       .filter((order) => {
+        // Sales hanya boleh lihat pesanan miliknya sendiri
+        if (isSalesScope && order.createdBy !== currentUser?.id) return false
+
         const customer = customerMap.get(order.customerId)
         const customerName = customer?.name?.toLowerCase() || ''
         const orderNumber = order.orderNumber?.toLowerCase() || ''
@@ -67,7 +71,7 @@ export default function OrderList() {
         return matchesSearch && matchesFilter && matchesProgram && matchesSource && matchesDateFrom && matchesDateTo
       })
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-  }, [activeFilter, customerMap, dateFrom, dateTo, orders, programFilter, search, sourceFilter])
+  }, [activeFilter, currentUser?.id, currentUser?.role, customerMap, dateFrom, dateTo, orders, programFilter, search, sourceFilter])
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)

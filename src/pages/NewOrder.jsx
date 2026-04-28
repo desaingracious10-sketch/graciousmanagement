@@ -90,6 +90,7 @@ function createManualForm() {
     existingCustomerId: '',
     name: '',
     phone: '',
+    birthDate: '',
     addressPrimary: '',
     addressAlternate: '',
     addressNotes: '',
@@ -354,6 +355,7 @@ export default function NewOrder() {
         id: `c${Date.now()}`,
         name: source.name,
         phone: source.phone,
+        birthDate: source.birthDate || null,
         addressPrimary: source.addressPrimary,
         addressAlternate: source.addressAlternate || null,
         addressNotes: source.addressNotes || '',
@@ -784,6 +786,7 @@ function ManualMode({
             <div className="grid gap-4 md:grid-cols-2">
               <ManualInput dataField="name" label="Nama Lengkap" value={form.name} error={validationErrors.name} onChange={(value) => patch('name', value)} />
               <ManualInput dataField="phone" label="No. HP / WhatsApp" value={form.phone} error={validationErrors.phone} onChange={(value) => patch('phone', normalizeWhatsappInput(value))} placeholder="+62xxx" />
+              <ManualInput dataField="birthDate" label="Tanggal Lahir (Opsional — untuk reminder ulang tahun)" type="date" value={form.birthDate} onChange={(value) => patch('birthDate', value)} />
               <ManualTextarea dataField="addressPrimary" label="Alamat Pengiriman Utama" value={form.addressPrimary} error={validationErrors.addressPrimary} onChange={(value) => patch('addressPrimary', value)} className="md:col-span-2" />
               <ManualTextarea dataField="addressAlternate" label="Alamat Alternatif" value={form.addressAlternate} onChange={(value) => patch('addressAlternate', value)} className="md:col-span-2" />
               <ManualTextarea dataField="addressNotes" label="Catatan Alamat" value={form.addressNotes} onChange={(value) => patch('addressNotes', value)} className="md:col-span-2" />

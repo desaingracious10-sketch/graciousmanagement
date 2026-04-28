@@ -14,5 +14,6 @@ if (!SUPABASE_CONFIGURED) {
 export const supabase = SUPABASE_CONFIGURED
   ? createClient(supabaseUrl, supabaseAnonKey, {
       realtime: { params: { eventsPerSecond: 10 } },
+      auth: { persistSession: false },
     })
   : null

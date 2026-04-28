@@ -13,7 +13,7 @@ export default function CustomerList() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const currentUser = getStoredUser()
-  const { rawDb, programs, zones, isLoading, softDeleteCustomer } = useApp()
+  const { rawDb, programs, zones, isLoading, softDeleteCustomer, upcomingBirthdays = [] } = useApp()
   const [customerExtras, setCustomerExtras] = useState(() => readStorageArray(STORAGE_CUSTOMERS_KEY))
   const [addressLogs, setAddressLogs] = useState(() => readStorageArray(STORAGE_ADDRESS_LOG_KEY))
   const [search, setSearch] = useState('')
@@ -177,6 +177,10 @@ export default function CustomerList() {
         </header>
 
         {toast ? <ToastBanner toast={toast} /> : null}
+
+        {['superadmin', 'address_admin'].includes(currentUser?.role) && upcomingBirthdays.length > 0 ? (
+          <UpcomingBirthdaysCard rows={upcomingBirthdays} zones={zones} />
+        ) : null}
 
         <Card className="rounded-[28px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
           <div className="grid gap-4 xl:grid-cols-[1.2fr_repeat(3,minmax(0,0.6fr))]">
@@ -468,4 +472,65 @@ function deriveInitialStatusFilter(filter) {
 
 function ToastBanner({ toast }) {
   return <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{toast.message}</div>
+}
+
+function UpcomingBirthdaysCard({ rows, zones }) {
+  const sorted = [...rows].sort((a, b) => (a.daysUntil ?? 999) - (b.daysUntil ?? 999)).slice(0, 20)
+  return (
+    <Card className="rounded-[28px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <div className="text-base font-semibold text-slate-900">🎂 Ulang Tahun Customer Terdekat</div>
+          <div className="text-xs text-slate-500">{sorted.length} customer dalam waktu dekat — kirim ucapan untuk retensi.</div>
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-2xl border border-slate-200">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-left">
+              <th className="px-3 py-2 font-semibold text-slate-600">Nama</th>
+              <th className="px-3 py-2 font-semibold text-slate-600">Tanggal Lahir</th>
+              <th className="px-3 py-2 font-semibold text-slate-600">Zona</th>
+              <th className="px-3 py-2 font-semibold text-slate-600">Sisa Hari</th>
+              <th className="px-3 py-2 font-semibold text-slate-600">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((row, idx) => {
+              const zoneName = row.zoneName || zones.find((z) => z.id === row.zoneId)?.name || '-'
+              const days = Number(row.daysUntil ?? row.days_until ?? 0)
+              const status = row.subscriptionStatus || row.status || (row.isActive === false ? 'Nonaktif' : 'Aktif')
+              return (
+                <tr key={row.id || row.customerId || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                  <td className="px-3 py-2 font-medium text-slate-800">{row.name || row.customerName || '-'}</td>
+                  <td className="px-3 py-2 text-slate-600">{row.birthDate ? formatDate(row.birthDate) : '-'}</td>
+                  <td className="px-3 py-2 text-slate-600">{zoneName}</td>
+                  <td className="px-3 py-2"><BirthdayDaysBadge days={days} /></td>
+                  <td className="px-3 py-2 text-slate-600">{status}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
+
+function BirthdayDaysBadge({ days }) {
+  if (days === 0) {
+    return (
+      <span className="inline-flex animate-pulse items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
+        🎂 Hari ini!
+      </span>
+    )
+  }
+  if (days >= 1 && days <= 7) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+        🎉 {days} hari lagi
+      </span>
+    )
+  }
+  return <span className="text-xs text-slate-500">{days} hari lagi</span>
 }

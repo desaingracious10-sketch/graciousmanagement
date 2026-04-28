@@ -339,6 +339,10 @@ function MenuSection({ weeklyMenus, today, program }) {
     activeMenu.days.find((d) => EN_TO_ID_DAY[d.day] === activeDay) ||
     null
 
+  // Jika menu mingguan tidak memiliki foto sama sekali, gunakan tampilan tabel
+  // yang lebih ringkas — semua hari terlihat sekaligus.
+  const hasAnyPhoto = activeMenu.days.some((d) => d.menuImageUrl)
+
   return (
     <Card>
       <div className="text-base font-semibold text-slate-900">🍽️ Menu Minggu Ini</div>
@@ -346,38 +350,98 @@ function MenuSection({ weeklyMenus, today, program }) {
         {formatID(activeMenu.weekStart)} — {formatID(activeMenu.weekEnd)} · {activeMenu.weekLabel || ''}
       </p>
 
-      <div className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-        {WEEKDAYS.map((day) => {
-          const isActive = day === activeDay
-          return (
-            <button
-              key={day}
-              type="button"
-              onClick={() => setActiveDay(day)}
-              className={`min-h-[44px] shrink-0 rounded-full px-4 text-sm font-semibold transition ${
-                isActive
-                  ? 'bg-[#0d9488] text-white shadow-[0_8px_18px_rgba(13,148,136,0.25)]'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {DAY_LABELS[day].toUpperCase()}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="mt-4">
-        {dayEntry ? (
-          <MenuCard day={dayEntry} />
-        ) : (
-          <div className="grid place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
-            <div className="text-4xl">🍱</div>
-            <div className="mt-2 text-sm font-medium text-slate-600">Menu hari {DAY_LABELS[activeDay]} belum tersedia</div>
-            <p className="mt-1 text-xs text-slate-500">Pantau terus, admin akan segera update.</p>
+      {hasAnyPhoto ? (
+        <>
+          <div className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {WEEKDAYS.map((day) => {
+              const isActive = day === activeDay
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => setActiveDay(day)}
+                  className={`min-h-[44px] shrink-0 rounded-full px-4 text-sm font-semibold transition ${
+                    isActive
+                      ? 'bg-[#0d9488] text-white shadow-[0_8px_18px_rgba(13,148,136,0.25)]'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {DAY_LABELS[day].toUpperCase()}
+                </button>
+              )
+            })}
           </div>
-        )}
-      </div>
+
+          <div className="mt-4">
+            {dayEntry ? (
+              <MenuCard day={dayEntry} />
+            ) : (
+              <div className="grid place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
+                <div className="text-4xl">🍱</div>
+                <div className="mt-2 text-sm font-medium text-slate-600">Menu hari {DAY_LABELS[activeDay]} belum tersedia</div>
+                <p className="mt-1 text-xs text-slate-500">Pantau terus, admin akan segera update.</p>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <WeeklyMenuTable menu={activeMenu} />
+      )}
     </Card>
+  )
+}
+
+function WeeklyMenuTable({ menu }) {
+  const days = menu.days || []
+  const hasDinner = days.some((d) => d?.dinner?.name)
+  const hasNotes = days.some((d) => d?.notes)
+
+  return (
+    <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-teal/10">
+            <th className="px-3 py-2 text-left font-semibold text-teal-dark">Hari</th>
+            <th className="px-3 py-2 text-left font-semibold text-teal-dark">Tanggal</th>
+            <th className="px-3 py-2 text-left font-semibold text-teal-dark">Makan Siang</th>
+            <th className="px-3 py-2 text-right font-semibold text-teal-dark">Kalori</th>
+            {hasDinner ? (
+              <>
+                <th className="px-3 py-2 text-left font-semibold text-teal-dark">Makan Malam</th>
+                <th className="px-3 py-2 text-right font-semibold text-teal-dark">Kalori</th>
+              </>
+            ) : null}
+          </tr>
+        </thead>
+        <tbody>
+          {days.map((day, idx) => (
+            <tr key={day.day || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+              <td className="px-3 py-3 font-medium text-slate-800">
+                {DAY_LABELS[day.day] || day.day || '—'}
+              </td>
+              <td className="px-3 py-3 text-slate-600">{day.date ? formatID(day.date) : '—'}</td>
+              <td className="px-3 py-3 text-slate-700">{day.lunch?.name || '—'}</td>
+              <td className="px-3 py-3 text-right font-medium text-teal-dark">
+                {day.lunch?.calories ? `${day.lunch.calories} kkal` : '—'}
+              </td>
+              {hasDinner ? (
+                <>
+                  <td className="px-3 py-3 text-slate-700">{day.dinner?.name || '—'}</td>
+                  <td className="px-3 py-3 text-right font-medium text-teal-dark">
+                    {day.dinner?.calories ? `${day.dinner.calories} kkal` : '—'}
+                  </td>
+                </>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {hasNotes ? (
+        <div className="border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          📝 Beberapa hari memiliki catatan tambahan — buka detail hari pada batch berikutnya.
+        </div>
+      ) : null}
+    </div>
   )
 }
 

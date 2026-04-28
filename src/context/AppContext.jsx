@@ -34,6 +34,7 @@ const initialState = {
   activityLogs: [],
   notifications: [],
   weeklyMenus: [],
+  upcomingBirthdays: [],
   currentUser: null,
   isLoading: true,
   isConnected: false,
@@ -148,6 +149,7 @@ export function AppProvider({ children }) {
         addressChangeLogs,
         activityLogs,
         weeklyMenus,
+        upcomingBirthdays,
       ] = await Promise.all([
         db.getUsers(),
         db.getDrivers().catch(() => []),
@@ -160,6 +162,7 @@ export function AppProvider({ children }) {
         db.getAddressChangeLogs().catch(() => []),
         db.getActivityLogs(50).catch(() => []),
         db.getWeeklyMenus().catch(() => []),
+        db.getUpcomingBirthdays().catch(() => []),
       ])
 
       dispatch({
@@ -176,6 +179,7 @@ export function AppProvider({ children }) {
           addressChangeLogs,
           activityLogs,
           weeklyMenus,
+          upcomingBirthdays,
         },
       })
     } catch (error) {
@@ -470,9 +474,9 @@ export function AppProvider({ children }) {
     const finalizeRoute = (payload, toast = 'Rute berhasil difinalize.') =>
       withToast(
         async () => {
-          // payload = { id, status: 'finalized', ... }
-          const { id, ...rest } = payload
-          const updated = await db.updateDeliveryRoute(id, { status: 'finalized', ...rest })
+          // payload = { id, ...extraUpdates }
+          const { id, status: _ignoredStatus, ...rest } = payload
+          const updated = await db.finalizeRoute(id, state.currentUser?.id, rest)
           dispatch({ type: 'UPSERT', payload: { key: 'deliveryRoutes', item: updated } })
           return updated
         },
