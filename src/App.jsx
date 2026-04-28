@@ -16,6 +16,7 @@ const CustomerDetail = lazy(() => import('./pages/CustomerDetail.jsx'))
 const RouteList = lazy(() => import('./pages/RouteList.jsx'))
 const RouteBuilder = lazy(() => import('./pages/RouteBuilder.jsx'))
 const RoutePrint = lazy(() => import('./pages/RoutePrint.jsx'))
+const WeeklyRouteBuilder = lazy(() => import('./pages/WeeklyRouteBuilder.jsx'))
 const ZoneManager = lazy(() => import('./pages/ZoneManager.jsx'))
 const DriverList = lazy(() => import('./pages/DriverList.jsx'))
 const UserManager = lazy(() => import('./pages/UserManager.jsx'))
@@ -102,6 +103,7 @@ export default function App() {
           <Route element={<RoleGuard roles={['superadmin', 'address_admin']} />}>
             <Route path="/customers/:id" element={<CustomerDetail />} />
             <Route path="/routes" element={<RouteList />} />
+            <Route path="/routes/weekly" element={<WeeklyRouteBuilder />} />
             <Route path="/routes/builder" element={<RouteBuilder />} />
             <Route path="/routes/print" element={<RoutePrint />} />
             <Route path="/zones" element={<ZoneManager />} />

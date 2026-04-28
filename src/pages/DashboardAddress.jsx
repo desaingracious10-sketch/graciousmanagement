@@ -1,10 +1,15 @@
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, CheckCircle2, Map, MapPinned, Printer, Truck, UserRoundSearch, Users } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Map, MapPinned, Printer, Truck, UserRoundSearch, Users } from 'lucide-react'
 import { useApp } from '../context/AppContext.jsx'
-import { Badge, Button, Card, Table } from '../components/ui.jsx'
+import { Badge, Button, Card, Table, todayISO } from '../components/ui.jsx'
 
-const TODAY_ISO = '2026-04-26'
-const YESTERDAY_ISO = '2026-04-25'
+const TODAY_ISO = todayISO()
+// fallback untuk widget "kemarin" — tidak kritis kalau salah
+const YESTERDAY_ISO = (() => {
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  return d.toISOString().slice(0, 10)
+})()
 
 export default function DashboardAddress() {
   const { deliveryRoutes, deliveryRouteItems, customers, orders, users, zones, programs } = useApp()
@@ -23,6 +28,32 @@ export default function DashboardAddress() {
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-8">
+        <section className="rounded-[32px] border border-teal/30 bg-gradient-to-br from-teal/10 via-amber-50/40 to-white p-6 shadow-[0_18px_50px_rgba(13,148,136,0.12)] sm:p-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="grid h-14 w-14 shrink-0 place-items-center rounded-3xl bg-teal text-white shadow-lg">
+                <CalendarDays size={26} />
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-dark">
+                  Alur Baru — Lebih Sederhana
+                </div>
+                <h2 className="mt-1 text-xl font-semibold text-gracious-navy">
+                  Buat rute untuk minggu depan dalam 3 langkah
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Pilih minggu → tugaskan customer per driver → finalize & print. Ada panduan
+                  built-in di setiap langkah.
+                </p>
+              </div>
+            </div>
+            <Button as={Link} to="/routes/weekly" className="gap-2 rounded-2xl bg-teal px-5 py-3 text-base hover:bg-teal-dark">
+              Buka Builder Mingguan
+              <ArrowRight size={16} />
+            </Button>
+          </div>
+        </section>
+
         <section className="rounded-[32px] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#fef9ee_100%)] px-6 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.05)] sm:px-8">
           {todaysRoutes.length === 0 ? (
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -38,9 +69,9 @@ export default function DashboardAddress() {
                   Belum ada rute pengiriman untuk {TODAY_ISO}. Buat rute sekarang agar driver bisa mulai distribusi tepat waktu.
                 </p>
               </div>
-              <Button as={Link} to="/routes/builder" className="rounded-2xl px-6 py-3 text-base bg-teal hover:bg-teal-dark">
-                <Map size={18} />
-                Buat Rute Sekarang
+              <Button as={Link} to="/routes/weekly" className="rounded-2xl px-6 py-3 text-base bg-teal hover:bg-teal-dark">
+                <CalendarDays size={18} />
+                Buka Builder Mingguan
               </Button>
             </div>
           ) : (
@@ -224,10 +255,10 @@ export default function DashboardAddress() {
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <QuickAction to="/routes/builder" icon={Map} label="Buat Rute Baru" tint="teal" />
+          <QuickAction to="/routes/weekly" icon={CalendarDays} label="Builder Mingguan" tint="teal" />
           <QuickAction to="/routes" icon={Truck} label="Daftar Semua Rute" tint="navy" />
           <QuickAction to="/customers" icon={Users} label="Data Customer" tint="gold" />
-          <QuickAction to="/routes/print" icon={Printer} label="Print Semua Rute" tint="green" />
+          <QuickAction to="/routes/weekly" icon={Printer} label="Print Rute Mingguan" tint="green" />
         </section>
       </div>
     </div>

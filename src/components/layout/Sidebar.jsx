@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, FileText, Home, Link2, Map, MapPinned, Package, PlusCircle, Truck, UserCog, Users, Utensils, X } from 'lucide-react'
+import { BarChart3, CalendarDays, ClipboardList, FileText, Home, Link2, Map, MapPinned, Package, PlusCircle, Truck, UserCog, Users, Utensils, X } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 
@@ -16,6 +16,7 @@ const MENU_BY_ROLE = {
     { label: 'Customer', to: '/customers', icon: Users, badgeKey: 'customers' },
     { label: 'Menu Mingguan', to: '/menu-manager', icon: Utensils },
     { label: 'Generate Link Portal', to: '/generate-link', icon: Link2 },
+    { label: 'Builder Rute Mingguan', to: '/routes/weekly', icon: CalendarDays },
     { label: 'Kelola Rute', to: '/routes', icon: Map, badgeKey: 'routes' },
     { label: 'Driver', to: '/drivers', icon: Truck },
     { label: 'Zona', to: '/zones', icon: MapPinned },
@@ -34,7 +35,7 @@ const MENU_BY_ROLE = {
   ],
   address_admin: [
     { label: 'Dashboard Rute', to: '/dashboard/alamat', icon: Home },
-    { label: 'Buat Rute Hari Ini', to: '/routes/builder', icon: Map, badgeKey: 'routes', prominent: true },
+    { label: 'Builder Rute Mingguan', to: '/routes/weekly', icon: CalendarDays, badgeKey: 'routes', prominent: true },
     { label: 'Daftar Rute', to: '/routes', icon: ClipboardList, badgeKey: 'routes' },
     { label: 'Data Customer', to: '/customers', icon: Users, badgeKey: 'customers' },
     { label: 'Kelola Zona', to: '/zones', icon: MapPinned },
