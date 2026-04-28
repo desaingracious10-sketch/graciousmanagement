@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Eye, MoreHorizontal, Pencil, Plus, Search, Trash2, UserX } from 'lucide-react'
+import { ChevronRight, Eye, MoreHorizontal, Pencil, Plus, Search, Trash2, UserCheck, UserX } from 'lucide-react'
 import AddressEditModal from '../components/customers/AddressEditModal.jsx'
 import { useApp } from '../context/AppContext.jsx'
 import { getStoredUser } from '../hooks/useAuth.js'
@@ -13,7 +13,7 @@ export default function CustomerList() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const currentUser = getStoredUser()
-  const { rawDb, programs, zones, isLoading, softDeleteCustomer, upcomingBirthdays = [] } = useApp()
+  const { rawDb, programs, zones, isLoading, softDeleteCustomer, updateCustomer, upcomingBirthdays = [] } = useApp()
   const [customerExtras, setCustomerExtras] = useState(() => readStorageArray(STORAGE_CUSTOMERS_KEY))
   const [addressLogs, setAddressLogs] = useState(() => readStorageArray(STORAGE_ADDRESS_LOG_KEY))
   const [search, setSearch] = useState('')
@@ -92,13 +92,38 @@ export default function CustomerList() {
   function handleDeactivate(row) {
     setConfirmState({
       title: `Yakin ingin nonaktifkan ${row.customer.name}?`,
-      description: 'Aksi ini tidak bisa dibatalkan.',
+      description: 'Customer akan disembunyikan dari daftar aktif. Bisa diaktifkan kembali kapan saja.',
       confirmLabel: 'Ya, Nonaktifkan',
       danger: true,
-      onConfirm: () => {
-        saveCustomerPatch({ ...row.customer, isActive: false })
-        setToast({ tone: 'success', message: `${row.customer.name} berhasil dinonaktifkan.` })
+      onConfirm: async () => {
         setConfirmState(null)
+        try {
+          await updateCustomer(
+            { id: row.customer.id, isActive: false },
+            `${row.customer.name} berhasil dinonaktifkan.`,
+          )
+        } catch {
+          // toast handled by withToast
+        }
+      },
+    })
+  }
+
+  function handleReactivate(row) {
+    setConfirmState({
+      title: `Aktifkan kembali ${row.customer.name}?`,
+      description: 'Customer akan kembali muncul di daftar customer aktif.',
+      confirmLabel: 'Ya, Aktifkan',
+      onConfirm: async () => {
+        setConfirmState(null)
+        try {
+          await updateCustomer(
+            { id: row.customer.id, isActive: true },
+            `${row.customer.name} berhasil diaktifkan kembali.`,
+          )
+        } catch {
+          // toast handled by withToast
+        }
       },
     })
   }
@@ -304,7 +329,11 @@ export default function CustomerList() {
                           <div className="absolute right-0 top-11 z-10 w-48 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
                             <ActionButton icon={Eye} label="Lihat Detail" onClick={() => navigate(`/customers/${row.customer.id}`)} />
                             <ActionButton icon={Pencil} label="Edit Alamat" onClick={() => setEditingCustomer(row.customer)} />
-                            <ActionButton icon={UserX} label="Nonaktifkan" danger onClick={() => handleDeactivate(row)} />
+                            {row.customer.isActive === false ? (
+                              <ActionButton icon={UserCheck} label="Aktifkan Kembali" onClick={() => handleReactivate(row)} />
+                            ) : (
+                              <ActionButton icon={UserX} label="Nonaktifkan" danger onClick={() => handleDeactivate(row)} />
+                            )}
                             {currentUser?.role === 'superadmin' ? (
                               <ActionButton icon={Trash2} label="Hapus Permanen" danger onClick={() => handleHardDelete(row)} />
                             ) : null}
