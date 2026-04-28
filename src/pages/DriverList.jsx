@@ -50,6 +50,9 @@ export default function DriverList() {
 
     if (isNew) {
       const payload = {
+        // Schema drivers.id bertipe TEXT (sama seperti users/customers/dst).
+        // Generate sendiri di client supaya tidak bergantung default DB.
+        id: `drv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name: form.name.trim(),
         username: form.username.trim().toLowerCase(),
         password: form.password,
