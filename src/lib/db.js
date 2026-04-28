@@ -543,6 +543,21 @@ export async function updateDeliveryRoute(id, updates) {
   return fromDb(data)
 }
 
+export async function deleteDeliveryRoute(id, currentUserId) {
+  ensureClient()
+  // Hapus item rute dulu agar FK delivery_route_items.route_id tidak menggantung
+  const { error: itemsErr } = await supabase
+    .from('delivery_route_items')
+    .delete()
+    .eq('route_id', id)
+  if (itemsErr) throw new Error('Gagal hapus item rute: ' + itemsErr.message)
+
+  const { error } = await supabase.from('delivery_routes').delete().eq('id', id)
+  if (error) throw new Error('Gagal hapus rute: ' + error.message)
+
+  await addActivityLog(currentUserId, 'DELETE_ROUTE', 'route', id, {})
+}
+
 export async function finalizeRoute(id, currentUserId, extraUpdates = {}) {
   ensureClient()
   const { data, error } = await supabase

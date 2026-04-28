@@ -480,6 +480,19 @@ export function AppProvider({ children }) {
         { successToast: toast },
       )
 
+    const deleteRoute = (routeId, toast = 'Rute berhasil dihapus.') =>
+      withToast(
+        async () => {
+          await db.deleteDeliveryRoute(routeId, state.currentUser?.id)
+          // Bersihkan item-item rute dari state — db sudah delete cascade-nya manual
+          dispatch({ type: 'REMOVE', payload: { key: 'deliveryRoutes', id: routeId } })
+          // Filter out items yang refer ke rute ini
+          const itemsToKeep = state.deliveryRouteItems.filter((item) => item.routeId !== routeId)
+          dispatch({ type: 'SET_LIST', payload: { key: 'deliveryRouteItems', list: itemsToKeep } })
+        },
+        { successToast: toast },
+      )
+
     const finalizeRoute = (payload, toast = 'Rute berhasil difinalize.') =>
       withToast(
         async () => {
@@ -700,6 +713,7 @@ export function AppProvider({ children }) {
       addRoute,
       updateRoute,
       finalizeRoute,
+      deleteRoute,
       addRouteItem,
       updateRouteItem,
       addUser,

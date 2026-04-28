@@ -70,6 +70,7 @@ export default function WeeklyRouteBuilder() {
     addRoute,
     updateRoute,
     finalizeRoute,
+    deleteRoute,
     addRouteItem,
     refreshData,
     showToast,
@@ -283,25 +284,17 @@ export default function WeeklyRouteBuilder() {
 
   async function handleDeleteRoute(route) {
     const items = itemsByRoute.get(route.id) || []
-    if (items.length > 0) {
-      showToast({
-        tone: 'warning',
-        message: `${route.routeLabel} masih punya ${items.length} customer. Hapus customer-nya dulu.`,
-      })
-      return
-    }
     const ok = await confirmAction({
       title: `Hapus ${route.routeLabel}?`,
-      description: 'Rute kosong ini akan dihapus permanen.',
+      description:
+        items.length > 0
+          ? `Rute ini memiliki ${items.length} customer. Semua item akan ikut terhapus. Lanjutkan?`
+          : 'Rute kosong ini akan dihapus permanen.',
       confirmLabel: 'Ya, Hapus',
       danger: true,
     })
     if (!ok) return
-    await updateRoute(
-      { id: route.id, status: 'cancelled' },
-      `${route.routeLabel} dihapus.`,
-    )
-    refreshData()
+    await deleteRoute(route.id, `${route.routeLabel} berhasil dihapus.`)
   }
 
   function handlePrint() {
@@ -693,9 +686,8 @@ function RouteCard({ summary, onFinalize, onDelete }) {
         <Button
           variant="secondary"
           onClick={onDelete}
-          disabled={items.length > 0}
-          className="rounded-xl px-3 py-2 text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-          title={items.length > 0 ? 'Hapus customer-nya dulu' : 'Hapus rute kosong'}
+          className="rounded-xl px-3 py-2 text-rose-600 hover:bg-rose-50"
+          title={items.length > 0 ? `Hapus rute + ${items.length} customer di dalamnya` : 'Hapus rute kosong'}
         >
           <Trash2 size={14} />
         </Button>
