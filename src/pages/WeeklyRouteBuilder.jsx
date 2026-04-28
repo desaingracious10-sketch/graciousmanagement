@@ -90,6 +90,14 @@ export default function WeeklyRouteBuilder() {
   const customerMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers])
   const zoneMap = useMemo(() => new Map(zones.map((z) => [z.id, z])), [zones])
   const driverMap = useMemo(() => new Map(drivers.map((d) => [d.id, d])), [drivers])
+  const orderMap = useMemo(() => new Map(orders.map((o) => [o.id, o])), [orders])
+
+  // delivery_route_items tidak punya kolom customer_id — kita lookup
+  // customer dari item.orderId → orders.customerId.
+  const customerForItem = (item) => {
+    const order = orderMap.get(item.orderId)
+    return order ? customerMap.get(order.customerId) : null
+  }
 
   // Routes minggu yang dipilih
   const weekRoutes = useMemo(
@@ -166,7 +174,7 @@ export default function WeeklyRouteBuilder() {
       const zone = route.zoneId ? zoneMap.get(route.zoneId) : null
       const items = itemsByRoute.get(route.id) || []
       const customerNames = items
-        .map((it) => customerMap.get(it.customerId)?.name)
+        .map((it) => customerForItem(it)?.name)
         .filter(Boolean)
       return {
         route,
@@ -177,7 +185,8 @@ export default function WeeklyRouteBuilder() {
         customerNames,
       }
     })
-  }, [customerMap, driverMap, itemsByRoute, weekRoutes, zoneMap])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerMap, driverMap, itemsByRoute, orderMap, weekRoutes, zoneMap])
 
   // ─── ACTIONS ────────────────────────────────────────────────
 
@@ -218,10 +227,11 @@ export default function WeeklyRouteBuilder() {
     const items = itemsByRoute.get(routeId) || []
     const sequenceNumber = `${route.routeLabel?.replace(/\D/g, '') || '1'}.${items.length + 1}`
 
+    // Catatan: tabel delivery_route_items TIDAK punya kolom customer_id —
+    // customer dilookup lewat order_id → orders.customer_id. Jangan kirim customerId.
     await addRouteItem({
       routeId,
       orderId: orderEntry.order.id,
-      customerId: orderEntry.customer.id,
       sequenceNumber,
       deliveryAddress: orderEntry.customer.addressPrimary || '',
       deliveryNotes: orderEntry.order.specialNotes || orderEntry.customer.addressNotes || '',
@@ -291,7 +301,7 @@ export default function WeeklyRouteBuilder() {
         weekStart={weekStart}
         weekEnd={weekEnd}
         routeSummaries={routeSummaries}
-        customerMap={customerMap}
+        customerForItem={customerForItem}
       />
     )
   }
@@ -746,7 +756,7 @@ function ReviewChecklist({ hasRoutes, allAssigned, hasFinalized }) {
 
 // ─── PRINT SHEET ───────────────────────────────────────────────────
 
-function PrintSheet({ batchLabel, weekStart, weekEnd, routeSummaries, customerMap }) {
+function PrintSheet({ batchLabel, weekStart, weekEnd, routeSummaries, customerForItem }) {
   return (
     <div className="bg-white p-8 print:p-0">
       <style>{`
@@ -794,7 +804,7 @@ function PrintSheet({ batchLabel, weekStart, weekEnd, routeSummaries, customerMa
                 </thead>
                 <tbody>
                   {rs.items.map((item, idx) => {
-                    const c = customerMap.get(item.customerId)
+                    const c = customerForItem(item)
                     return (
                       <tr key={item.id}>
                         <td className="border border-slate-300 px-2 py-1.5 text-center">{idx + 1}</td>
