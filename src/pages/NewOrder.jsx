@@ -56,7 +56,7 @@ const EDITABLE_FIELDS = [
   'specialNotes',
 ]
 
-const REQUIRED_FIELDS = ['name', 'phone', 'addressPrimary', 'programId', 'startDate']
+const REQUIRED_FIELDS = ['name', 'phone', 'addressPrimary', 'programId', 'mealType', 'durationType', 'startDate']
 const EXAMPLE_TEXT = `74. Nama : Wegi Randol
 Alamat : Jl. HR Rasuna Said Kav. C7-9, Setiabudi, Jakarta Selatan
 No hp : +62 812-2887-838

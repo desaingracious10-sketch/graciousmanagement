@@ -63,6 +63,42 @@ function diffDays(from, to) {
   return Math.round(ms / (1000 * 60 * 60 * 24))
 }
 
+function isWeekend(d) {
+  const dow = startOfDay(d).getDay()
+  return dow === 0 || dow === 6
+}
+
+// Hitung jumlah hari kerja (Senin–Jumat) di rentang [from, to] inklusif.
+// Pengiriman catering Gracious hanya Senin–Jumat — Sabtu/Minggu di-skip.
+function workingDaysBetween(from, to) {
+  const start = startOfDay(from)
+  const end = startOfDay(to)
+  if (end < start) return 0
+  let count = 0
+  const cursor = new Date(start)
+  while (cursor <= end) {
+    if (!isWeekend(cursor)) count += 1
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return count
+}
+
+// Hitung sisa hari kerja STRIKTLY setelah `from` sampai dan termasuk `to`.
+// Dipakai untuk "Sisa: X hari lagi" — hari ini tidak dihitung (sudah jadi pengantaran sekarang).
+function workingDaysAfter(from, to) {
+  const start = startOfDay(from)
+  const end = startOfDay(to)
+  if (end <= start) return 0
+  const cursor = new Date(start)
+  cursor.setDate(cursor.getDate() + 1)
+  let count = 0
+  while (cursor <= end) {
+    if (!isWeekend(cursor)) count += 1
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return count
+}
+
 function getMondayOf(d) {
   const day = new Date(d)
   const dow = day.getDay() // 0 = Sun
@@ -164,12 +200,36 @@ function SubscriptionCard({ order, program, today, customer }) {
 
   const start = order.startDate ? new Date(order.startDate) : null
   const end = order.endDate ? new Date(order.endDate) : null
-  const totalDays = start && end ? Math.max(diffDays(start, end), 1) : 0
-  const remaining = end ? diffDays(today, end) : 0
-  const elapsed = start ? Math.max(diffDays(start, today), 0) : 0
-  const progress = totalDays > 0 ? Math.min(Math.round((elapsed / totalDays) * 100), 100) : 0
 
-  const expired = remaining < 0 || order.status === 'completed'
+  // Total/elapsed/remaining dihitung dalam HARI KERJA (Senin–Jumat) — pengiriman
+  // catering Gracious tidak ada di Sabtu/Minggu, jadi weekend tidak ikut dihitung.
+  const totalDays = start && end ? Math.max(workingDaysBetween(start, end), 1) : 0
+
+  let elapsed = 0
+  let remaining = 0
+  let expired = order.status === 'completed'
+
+  if (start && end) {
+    const todayD = startOfDay(today)
+    const startD = startOfDay(start)
+    const endD = startOfDay(end)
+
+    if (todayD > endD) {
+      expired = true
+      elapsed = totalDays
+      remaining = 0
+    } else if (todayD < startD) {
+      // Belum mulai
+      elapsed = 0
+      remaining = totalDays
+    } else {
+      // Sedang berjalan — `remaining` dihitung dari BESOK sampai endDate
+      remaining = workingDaysAfter(todayD, endD)
+      elapsed = Math.max(totalDays - remaining, 0)
+    }
+  }
+
+  const progress = totalDays > 0 ? Math.min(Math.round((elapsed / totalDays) * 100), 100) : 0
   const tone = expired
     ? 'expired'
     : remaining <= 3
@@ -450,32 +510,36 @@ function MenuCard({ day }) {
   const dinner = day.dinner
 
   return (
-    <div className="overflow-hidden rounded-3xl bg-[#0f3a36] text-white shadow-[0_18px_40px_rgba(15,58,54,0.25)]">
+    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.08)]">
       {day.menuImageUrl ? (
-        <img
-          src={day.menuImageUrl}
-          alt={`Menu ${day.day}`}
-          loading="lazy"
-          className="h-56 w-full object-cover"
-        />
+        <div className="aspect-square w-full overflow-hidden bg-slate-100">
+          <img
+            src={day.menuImageUrl}
+            alt={`Menu ${day.day}`}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        </div>
       ) : (
-        <div className="grid h-56 place-items-center bg-[#0f3a36] text-6xl">🍱</div>
+        <div className="grid aspect-square w-full place-items-center bg-gradient-to-br from-teal-50 via-emerald-50 to-amber-50 text-7xl">
+          🍱
+        </div>
       )}
 
       <div className="space-y-4 p-5">
-        {lunch?.name ? (
-          <MealBlock icon="☀️" title="LUNCH" meal={lunch} />
-        ) : null}
+        {lunch?.name ? <MealBlock icon="☀️" title="LUNCH" meal={lunch} /> : null}
         {dinner?.name ? (
-          <div className="border-t border-white/10 pt-4">
+          <div className="border-t border-slate-100 pt-4">
             <MealBlock icon="🌙" title="DINNER" meal={dinner} />
           </div>
         ) : null}
         {day.notes ? (
-          <div className="rounded-2xl bg-white/10 px-3 py-2 text-xs text-teal-50/90">📝 {day.notes}</div>
+          <div className="rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-800">📝 {day.notes}</div>
         ) : null}
         {!lunch?.name && !dinner?.name ? (
-          <div className="text-center text-sm text-teal-50/85">Menu untuk {DAY_LABELS[day.day] || day.day}</div>
+          <div className="text-center text-sm text-slate-500">
+            Menu untuk {DAY_LABELS[day.day] || day.day}
+          </div>
         ) : null}
       </div>
     </div>
@@ -485,16 +549,18 @@ function MenuCard({ day }) {
 function MealBlock({ icon, title, meal }) {
   return (
     <div>
-      <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-[0.18em]">
+      <div className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-teal-dark">
         <span>{icon}</span>
         <span>{title}</span>
       </div>
-      <div className="mt-3 text-lg font-semibold leading-snug">{meal.name || meal.title || '-'}</div>
+      <div className="mt-3 text-lg font-semibold leading-snug text-slate-900">
+        {meal.name || meal.title || '-'}
+      </div>
       {meal.calories ? (
-        <div className="mt-1 font-serif text-3xl italic text-teal-50/95">{meal.calories} Kcal</div>
+        <div className="mt-1 font-serif text-3xl italic text-teal-dark">{meal.calories} Kcal</div>
       ) : null}
       {(meal.protein || meal.carbs || meal.fat || meal.fiber) ? (
-        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-teal-50/85">
+        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
           {meal.protein ? <span>Protein: {meal.protein}gr</span> : null}
           {meal.carbs ? <span>Carbs: {meal.carbs}gr</span> : null}
           {meal.fat ? <span>Fat: {meal.fat}gr</span> : null}
