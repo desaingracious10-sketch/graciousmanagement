@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CalendarDays,
@@ -76,10 +76,38 @@ export default function WeeklyRouteBuilder() {
     confirmAction,
   } = useApp()
 
-  // Default ke MINGGU DEPAN (paling sering dipakai admin alamat)
-  const [weekStart, setWeekStart] = useState(() => addDays(getMonday(), 7))
+  // Query param ?week=YYYY-MM-DD bisa override default. Default = MINGGU DEPAN.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [weekStart, setWeekStart] = useState(() => {
+    const fromQuery = searchParams.get('week')
+    if (fromQuery && /^\d{4}-\d{2}-\d{2}$/.test(fromQuery)) {
+      return getMonday(new Date(`${fromQuery}T00:00:00`))
+    }
+    return addDays(getMonday(), 7)
+  })
   const [showGuide, setShowGuide] = useState(true)
   const [printMode, setPrintMode] = useState(false)
+
+  // Auto-print kalau dipanggil dari RouteList dengan ?autoprint=1
+  useEffect(() => {
+    if (searchParams.get('autoprint') === '1') {
+      // Buang query param supaya tidak loop saat user navigate
+      const next = new URLSearchParams(searchParams)
+      next.delete('autoprint')
+      setSearchParams(next, { replace: true })
+      // Trigger print setelah render
+      const timer = window.setTimeout(() => {
+        setPrintMode(true)
+        window.setTimeout(() => {
+          window.print()
+          window.setTimeout(() => setPrintMode(false), 500)
+        }, 200)
+      }, 300)
+      return () => window.clearTimeout(timer)
+    }
+    return undefined
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const weekEnd = useMemo(() => addDays(weekStart, 4), [weekStart])
   const weekStartIso = toIso(weekStart)

@@ -248,7 +248,7 @@ export default function RouteList() {
                       zones={zones}
                       deliveryRouteItems={deliveryRouteItems}
                       onEdit={() => navigate(`/routes/builder?routeId=${route.id}`)}
-                      onPrint={() => navigate(`/routes/print?date=${route.deliveryDate}&route=${route.id}`)}
+                      onPrint={() => navigate(`/routes/weekly?week=${route.weekStart || ''}&autoprint=1`)}
                       onFinalize={() => handleFinalize(route)}
                       onComplete={() => handleMarkCompleted(route)}
                       onDelete={() => handleDelete(route)}
@@ -299,7 +299,7 @@ export default function RouteList() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => navigate(`/routes/print?date=${route.deliveryDate}&route=${route.id}`)}
+                              onClick={() => navigate(`/routes/weekly?week=${route.weekStart || ''}&autoprint=1`)}
                               className="inline-flex items-center gap-1 rounded-xl px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
                             >
                               <Printer size={12} /> Cetak
