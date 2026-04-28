@@ -546,10 +546,22 @@ function MenuCard({ day }) {
   )
 }
 
+const MEAL_PALETTE = {
+  LUNCH: {
+    pill: 'bg-amber-100 text-amber-800',
+    calorie: 'text-amber-700',
+  },
+  DINNER: {
+    pill: 'bg-indigo-100 text-indigo-800',
+    calorie: 'text-indigo-700',
+  },
+}
+
 function MealBlock({ icon, title, meal }) {
+  const palette = MEAL_PALETTE[title] || { pill: 'bg-teal-50 text-teal-dark', calorie: 'text-teal-dark' }
   return (
     <div>
-      <div className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-teal-dark">
+      <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] ${palette.pill}`}>
         <span>{icon}</span>
         <span>{title}</span>
       </div>
@@ -557,7 +569,7 @@ function MealBlock({ icon, title, meal }) {
         {meal.name || meal.title || '-'}
       </div>
       {meal.calories ? (
-        <div className="mt-1 font-serif text-3xl italic text-teal-dark">{meal.calories} Kcal</div>
+        <div className={`mt-1 font-serif text-3xl italic ${palette.calorie}`}>{meal.calories} Kcal</div>
       ) : null}
       {(meal.protein || meal.carbs || meal.fat || meal.fiber) ? (
         <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
