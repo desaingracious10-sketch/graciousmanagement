@@ -709,19 +709,30 @@ export async function addActivityLog(userId, action, entityType, entityId, detai
   } catch {
     // ignore
   }
+
+  // Generate id client-side. Schema activity_logs.id bertipe TEXT tanpa default,
+  // sama seperti tabel lain (customers, drivers). Kalau tidak diisi, insert gagal silent.
+  const id = `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+
   try {
-    await supabase.from('activity_logs').insert({
-      user_id: userId,
+    const { error } = await supabase.from('activity_logs').insert({
+      id,
+      user_id: userId || null,
       user_name: userName,
       user_role: userRole,
       action,
-      entity_type: entityType,
-      entity_id: entityId,
-      details,
+      entity_type: entityType || null,
+      entity_id: entityId || null,
+      details: details || {},
+      created_at: new Date().toISOString(),
     })
+    if (error) {
+      // Surface SUPABASE error (RLS, NOT NULL, dll) — supabase tidak throw, harus dibaca dari result
+      console.error('[Gracious] activity log insert error:', error.message, error.details)
+    }
   } catch (error) {
-    // Activity log tidak boleh crash app
-    console.error('[Gracious] activity log failed:', error)
+    // Network / runtime error
+    console.error('[Gracious] activity log network error:', error)
   }
 }
 
