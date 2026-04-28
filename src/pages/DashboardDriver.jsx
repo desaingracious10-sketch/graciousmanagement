@@ -5,7 +5,14 @@ import { getStoredUser } from '../hooks/useAuth.js'
 import { getDeliveryPhotoUrl, uploadDeliveryPhoto } from '../lib/imageUpload.js'
 import { Button, Input, Textarea } from '../components/ui.jsx'
 
-const TODAY_ISO = new Date().toISOString().slice(0, 10)
+// Hitung today di-runtime supaya selalu update kalau halaman dibuka beda hari.
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// Snapshot hari ini saat module load — dipakai di helper di luar komponen
+// (computeMetaBadge, dll.). Dalam komponen pakai todayIso() agar selalu fresh.
+const TODAY_ISO = todayIso()
 
 const FILTERS = [
   { id: 'all', label: 'Semua' },
@@ -23,11 +30,24 @@ export default function DashboardDriver() {
   const [sheetState, setSheetState] = useState(null)
   const [toast, setToast] = useState(null)
 
-  const todaysRoute = useMemo(
-    () =>
-      deliveryRoutes.find((route) => route.deliveryDate === TODAY_ISO && route.driverId === currentUser?.id) || null,
-    [deliveryRoutes, currentUser],
-  )
+  const today = todayIso()
+
+  // Rute milik driver yang aktif hari ini. Mendukung dua model:
+  //  - Model lama (per-hari): route.deliveryDate === today
+  //  - Model baru (mingguan): today antara route.weekStart dan route.weekEnd (Sen–Jum)
+  const todaysRoute = useMemo(() => {
+    if (!currentUser?.id) return null
+    return (
+      deliveryRoutes.find((route) => {
+        if (route.driverId !== currentUser.id) return false
+        if (route.deliveryDate === today) return true
+        if (route.weekStart && route.weekEnd && route.weekStart <= today && route.weekEnd >= today) {
+          return true
+        }
+        return false
+      }) || null
+    )
+  }, [deliveryRoutes, currentUser, today])
 
   const deliveryCards = useMemo(() => {
     if (!todaysRoute) return []
@@ -35,8 +55,9 @@ export default function DashboardDriver() {
     return deliveryRouteItems
       .filter((item) => item.routeId === todaysRoute.id)
       .map((item) => {
-        const customer = customers.find((entry) => entry.id === item.customerId)
+        // delivery_route_items tidak punya kolom customer_id — lookup lewat order.
         const order = orders.find((entry) => entry.id === item.orderId)
+        const customer = order ? customers.find((entry) => entry.id === order.customerId) : null
         const program = programs.find((entry) => entry.id === order?.programId)
         const status = item.status || 'pending'
 
@@ -46,13 +67,13 @@ export default function DashboardDriver() {
           sequenceNumber: item.sequenceNumber,
           status,
           statusTone: status === 'delivered' ? 'success' : status === 'failed' ? 'failed' : 'pending',
-          customerName: customer?.name || item.customerId,
+          customerName: customer?.name || order?.customerId || '-',
           packageName: shortProgramLabel(program?.name || order?.programId || '-'),
           deliveryAddress: item.deliveryAddress,
           deliveryNotes: item.deliveryNotes || '',
           dietaryNotes: item.dietaryNotes || order?.dietaryNotes || '',
           phone: customer?.phone || '-',
-          untilDate: item.untilDate || order?.endDate || TODAY_ISO,
+          untilDate: item.untilDate || order?.endDate || today,
           metaBadge: computeMetaBadge(customer, order, item),
           proofOfDelivery: item.proofOfDelivery || null,
           failedReason: item.failedReason || '',
@@ -60,7 +81,7 @@ export default function DashboardDriver() {
         }
       })
       .sort((a, b) => sortSequence(a.sequenceNumber, b.sequenceNumber))
-  }, [todaysRoute, deliveryRouteItems, customers, orders, programs])
+  }, [todaysRoute, deliveryRouteItems, customers, orders, programs, today])
 
   const filteredCards = useMemo(() => {
     if (filter === 'pending') return deliveryCards.filter((item) => item.status === 'pending')
@@ -202,7 +223,7 @@ export default function DashboardDriver() {
                 RUTE {todaysRoute.routeLabel.replace('RUTE ', '')} - {(currentUser?.name || 'Driver').toUpperCase()}
               </div>
               <div className="mt-2 text-sm text-white/90">
-                {formatFriendlyDate(TODAY_ISO)} | {deliveryCards.length} titik pengiriman
+                {formatFriendlyDate(today)} | {deliveryCards.length} titik pengiriman
               </div>
               <div className="mt-4">
                 <div className="mb-2 flex items-center justify-between text-sm">
@@ -456,10 +477,12 @@ export default function DashboardDriver() {
           <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
             <div className="flex items-center gap-3 text-amber-700">
               <AlertTriangle size={20} />
-              <div className="text-lg font-semibold">Belum ada rute untuk driver ini hari ini.</div>
+              <div className="text-lg font-semibold">Belum ada rute aktif untuk driver ini.</div>
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-500">
-              Dashboard driver hanya menampilkan rute aktif milik driver yang login. Pastikan driver sudah di-assign ke rute untuk tanggal {TODAY_ISO}.
+              Dashboard driver menampilkan rute yang aktif untuk hari ini ({today}). Pastikan
+              admin alamat sudah memasukkan kamu ke salah satu rute mingguan yang mencakup tanggal hari ini,
+              dan rutenya sudah di-finalize.
             </p>
           </div>
         </div>
